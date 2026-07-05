@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Update sidebar with new admin endpoints and adjust logo dimensions. (`4f69744`)
+
 ## 0.2.4 - 2026-06-26
 
 - Add admin routes for managing folders and requests. (`8e9d85f`)

@@ -8,6 +8,6 @@ const homeHref = withBase('/');
 
 <template>
   <a class="docs-sidebar-brand" :href="homeHref" :aria-label="SITE_TITLE">
-    <img :src="logoSrc" :alt="SITE_TITLE" width="671" height="491" decoding="async" />
+    <img :src="logoSrc" :alt="SITE_TITLE" width="500" height="500" decoding="async" />
   </a>
 </template>

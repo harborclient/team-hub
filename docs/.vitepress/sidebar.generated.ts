@@ -405,8 +405,24 @@ export const sidebar: DefaultTheme.SidebarItem[] =
             "link": "/endpoints#get-admincollections"
           },
           {
+            "text": "PUT /admin/collections/:id",
+            "link": "/endpoints#put-admincollectionsid"
+          },
+          {
+            "text": "DELETE /admin/collections/:id",
+            "link": "/endpoints#delete-admincollectionsid"
+          },
+          {
             "text": "GET /admin/environments",
             "link": "/endpoints#get-adminenvironments"
+          },
+          {
+            "text": "PUT /admin/environments/:id",
+            "link": "/endpoints#put-adminenvironmentsid"
+          },
+          {
+            "text": "DELETE /admin/environments/:id",
+            "link": "/endpoints#delete-adminenvironmentsid"
           },
           {
             "text": "GET /admin/llm/models",
@@ -461,14 +477,7 @@ export const sidebar: DefaultTheme.SidebarItem[] =
           {
             "text": "DELETE /environments/:id",
             "link": "/endpoints#delete-environmentsid"
-          }
-        ],
-        "collapsed": false
-      },
-      {
-        "text": "Folders",
-        "link": "/endpoints#folders",
-        "items": [
+          },
           {
             "text": "GET /collections/:collectionId/folders",
             "link": "/endpoints#get-collectionscollectionidfolders"
