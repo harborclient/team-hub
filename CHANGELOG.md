@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Update logo dimensions in custom CSS for improved presentation. (`41defea`)
 - Revamp documentation layout and enhance visual elements. (`1b215fe`)
 - Update sidebar with new admin endpoints and adjust logo dimensions. (`4f69744`)
 

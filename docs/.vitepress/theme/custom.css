@@ -21,7 +21,7 @@
 /* Home hero logo (see docs/index.md layout: home) */
 .VPHome .VPHero .image img {
   display: block;
-  max-width: min(210px, 100%);
+  max-width: min(420px, 100%);
   height: auto;
   margin-inline: auto;
 }
