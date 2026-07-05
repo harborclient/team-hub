@@ -17,7 +17,8 @@ const withSiteBase = (path: string) => {
 export default withMermaid(
   defineConfig({
     title: 'Team Hub',
-    description: 'Team Hub — central server for HarborClient',
+    description:
+      'Self-hosted HarborClient hub for shared collections, curated plugins and themes, and team AI.',
     base: siteBase,
     appearance: 'force-dark',
     cleanUrls: true,
@@ -91,6 +92,11 @@ export default withMermaid(
       },
       siteTitle: false,
       nav: [
+        { text: 'Get started', link: '/setup' },
+        { text: 'Deploy with Docker', link: '/deploy' },
+        { text: 'Team Hub API', link: 'https://harborclient.github.io/team-hub-api/' },
+        { text: 'NPM', link: 'https://www.npmjs.com/package/@harborclient/team-hub' },
+        { text: 'What is HarborClient?', link: 'https://harborclient.com' },
         {
           text: `v${pkg.version}`,
           link: 'https://github.com/harborclient/team-hub/releases',

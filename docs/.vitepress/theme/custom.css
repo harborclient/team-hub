@@ -13,49 +13,120 @@
 
 .vp-doc img[alt='Team Hub'] {
   display: block;
-  max-width: min(420px, 100%);
+  max-width: min(210px, 100%);
   height: auto;
-  margin: 0 0 1.5rem;
+  margin: 0 auto 1.5rem;
 }
 
-/* Brand mark: full width of the sidebar column (see SidebarBrand.vue) */
+/* Home hero logo (see docs/index.md layout: home) */
+.VPHome .VPHero .image img {
+  display: block;
+  max-width: min(210px, 100%);
+  height: auto;
+  margin-inline: auto;
+}
+
+.VPHome .VPHero .container {
+  padding-top: 2rem;
+}
+
+.VPHome .VPFeatures {
+  padding-top: 2rem;
+}
+
+/* Brand mark: footer at bottom of sidebar nav (see SidebarBrand.vue) */
 .docs-sidebar-brand {
   display: block;
-  margin: 0 -32px 20px;
-  padding: 0 0 20px;
-  border-bottom: 1px solid var(--vp-c-divider);
+  margin: 20px -32px 0;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--vp-c-divider);
   box-sizing: border-box;
   width: calc(100% + 64px);
 }
 
 .docs-sidebar-brand img {
   display: block;
-  width: 95%;
+  width: calc(95% / 3);
   height: auto;
+  margin-inline: auto;
+}
+
+/* Hide default sidebar-column title; logo lives in content-body instead. */
+.VPNavBarTitle {
+  display: none;
 }
 
 /*
- * Desktop: full-width logo flush with search box top; sticky while nav scrolls.
+ * Desktop: flush sidebar nav at top; move search into sidebar.
  */
 @media (min-width: 960px) {
-  .VPNavBarTitle {
-    display: none;
-  }
-
   .VPSidebar {
-    padding-top: 12px !important;
+    padding-top: 0 !important;
   }
 
-  .VPSidebar .curtain {
-    display: none !important;
+  .VPNavBar .VPNavBarSearch {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* Small logo in the main nav content header (see NavBarLogo.vue) */
+.docs-nav-bar-logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: auto;
+  margin-left: 10px;
+}
+
+/*
+ * Mobile: symmetric header padding; logo inset matches hamburger/search side.
+ */
+@media (max-width: 959px) {
+  .VPNavBar .wrapper {
+    padding-left: 8px;
   }
 
-  .docs-sidebar-brand {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background-color: var(--vp-sidebar-bg-color);
+  .docs-nav-bar-logo {
+    padding-left: 0;
   }
+}
+
+@media (min-width: 960px) {
+  .docs-nav-bar-logo {
+    padding-left: 20px;
+  }
+}
+
+.docs-nav-bar-logo img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+/* Local search at top of sidebar nav (see SidebarSearch.vue) */
+.docs-sidebar-search {
+  display: block;
+  margin: 0 -32px;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--vp-c-divider);
+  box-sizing: border-box;
+  width: calc(100% + 64px);
+}
+
+.docs-sidebar-search .DocSearch-Button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 40px;
 }
 
 /*
@@ -66,9 +137,8 @@
     display: none;
   }
 
-  .VPNavBarTitle img.logo {
-    height: 36px;
-    width: auto;
+  .docs-sidebar-search {
+    display: none;
   }
 }
 

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Revamp documentation layout and enhance visual elements. (`1b215fe`)
 - Update sidebar with new admin endpoints and adjust logo dimensions. (`4f69744`)
 
 ## 0.2.4 - 2026-06-26
