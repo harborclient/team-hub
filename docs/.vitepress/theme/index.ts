@@ -1,6 +1,7 @@
 import type { Theme } from 'vitepress';
 import DefaultTheme from 'vitepress/theme';
 import Layout from './Layout.vue';
+import TeamHubHomePage from './TeamHubHomePage.vue';
 import './custom.css';
 
 const syncDocImageLinks = () => {
@@ -19,6 +20,7 @@ export default {
   Layout,
   enhanceApp(ctx) {
     DefaultTheme.enhanceApp?.(ctx);
+    ctx.app.component('TeamHubHomePage', TeamHubHomePage);
 
     if (typeof window === 'undefined') {
       return;

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Revamp homepage layout and enhance visual assets. (`bc03419`)
 - Update image assets for improved visual consistency. (`94c2572`)
 - Update logo dimensions in custom CSS for improved presentation. (`41defea`)
 - Revamp documentation layout and enhance visual elements. (`1b215fe`)
