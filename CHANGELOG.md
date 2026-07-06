@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Enhance GitHub Pages deployment configuration. (`af79228`)
+
 ## 0.3.0 - 2026-07-06
 
 - Add MCP server configuration support in LLM section. (`e12f417`)
