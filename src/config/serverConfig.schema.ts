@@ -84,6 +84,25 @@ export const llmProviderEntrySchema = z.object({
 });
 
 /**
+ * Zod schema for MCP server HTTP headers in server.yaml.
+ *
+ * Accepts an object map, an array of single-key objects, or one nested array level.
+ */
+export const hubMcpHeadersSchema = z.union([
+  z.record(z.string(), z.string()),
+  z.array(z.union([z.record(z.string(), z.string()), z.array(z.record(z.string(), z.string()))]))
+]);
+
+/**
+ * Zod schema for one MCP server entry under llm.mcp.
+ */
+export const hubMcpServerEntrySchema = z.object({
+  name: z.string().trim().min(1),
+  url: z.string().trim().min(1),
+  headers: hubMcpHeadersSchema.optional()
+});
+
+/**
  * Zod schema for the optional `llm` section of the config file.
  */
 export const llmSectionSchema = z.object({
@@ -98,7 +117,8 @@ export const llmSectionSchema = z.object({
         Boolean(providers.openai?.apiKey || providers.claude?.apiKey || providers.gemini?.apiKey),
       { message: 'llm.providers must include at least one provider with an apiKey.' }
     ),
-  models: z.array(z.string().trim().min(1)).optional()
+  models: z.array(z.string().trim().min(1)).optional(),
+  mcp: z.array(hubMcpServerEntrySchema).optional()
 });
 
 /**

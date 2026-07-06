@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add MCP server configuration support in LLM section. (`e12f417`)
 - Revamp homepage layout and enhance visual assets. (`bc03419`)
 - Update image assets for improved visual consistency. (`94c2572`)
 - Update logo dimensions in custom CSS for improved presentation. (`41defea`)

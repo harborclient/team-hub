@@ -30,16 +30,30 @@ const sections: Section[] = [
     id: 'hero',
     body: 'Ship API work faster — one server for shared collections, curated plugins and themes, and team AI.',
     image: '/images/homepage/hero.png',
-    imageAlt:
-      'Developers at a harbor pier connecting laptops to a central lighthouse hub server',
+    imageAlt: 'Developers at a harbor pier connecting laptops to a central lighthouse hub server',
     showLogo: true,
     actions: [
       { text: 'Get started', link: '/setup', theme: 'brand' },
       { text: 'Deploy with Docker', link: '/deploy', theme: 'guide' },
-      { text: 'Team Hub API', link: 'https://harborclient.github.io/team-hub-api/', theme: 'alt', external: true },
-      { text: 'NPM', link: 'https://www.npmjs.com/package/@harborclient/team-hub', theme: 'alt', external: true },
-      { text: 'What is HarborClient?', link: 'https://harborclient.com', theme: 'alt', external: true },
-    ],
+      {
+        text: 'Team Hub API',
+        link: 'https://harborclient.github.io/team-hub-api/',
+        theme: 'alt',
+        external: true
+      },
+      {
+        text: 'NPM',
+        link: 'https://www.npmjs.com/package/@harborclient/team-hub',
+        theme: 'alt',
+        external: true
+      },
+      {
+        text: 'What is HarborClient?',
+        link: 'https://harborclient.com',
+        theme: 'alt',
+        external: true
+      }
+    ]
   },
   {
     id: 'shared-collections',
@@ -49,11 +63,11 @@ const sections: Section[] = [
     bullets: [
       'Token-gated HTTP API for collection sync',
       'Scoped access per teammate without shared DB credentials',
-      'Folders, defaults, and requests stay in sync from one hub',
+      'Folders, defaults, and requests stay in sync from one hub'
     ],
     image: '/images/homepage/shared-collections.png',
     imageAlt:
-      'Two teammates reviewing a shared nautical chart table with synchronized API collection panels',
+      'Two teammates reviewing a shared nautical chart table with synchronized API collection panels'
   },
   {
     id: 'curated-plugins-themes',
@@ -63,27 +77,28 @@ const sections: Section[] = [
     bullets: [
       'Central marketplace and trusted source lists in server.yaml',
       'Signed plugin packages flow to every connected desktop client',
-      'Appearance themes ship alongside functional plugins',
+      'Appearance themes ship alongside functional plugins'
     ],
     image: '/images/homepage/curated-plugins-themes.png',
     imageAlt:
       'Crew on a ship deck organizing modular plugin crates and theme swatches at a central hub',
     imageFirst: true,
-    variant: 'muted',
+    variant: 'muted'
   },
   {
     id: 'team-ai',
     eyebrow: 'Team AI, your keys',
     title: 'Proxy LLMs without exposing provider keys',
-    body: 'Proxy OpenAI, Claude, and Gemini from the hub with per-user model access, monthly token limits, and audit logging. Desktop clients never receive provider API keys.',
+    body: 'Proxy OpenAI, Claude, and Gemini from the hub with per-user model access, monthly token limits, and audit logging. Desktop clients never receive provider API keys. Optionally add MCP servers in server.yaml — the hub runs those tools server-side during chat so teammates get capabilities like web search without MCP credentials on laptops.',
     bullets: [
       'Provider API keys stay on the hub, not on laptops',
+      'Optional MCP servers in server.yaml run hub-side during chat',
       'Per-user model access and monthly token limits',
-      'Audit logging for team AI usage',
+      'Audit logging for team AI usage'
     ],
     image: '/images/homepage/team-ai.png',
     imageAlt:
-      'Team members at a harbor chart table with an AI assistant panel and lighthouse beacon overhead',
+      'Team members at a harbor chart table with an AI assistant panel and lighthouse beacon overhead'
   },
   {
     id: 'self-hosted-control',
@@ -93,13 +108,13 @@ const sections: Section[] = [
     bullets: [
       'All-in-one Docker image with Nginx, API, Postgres, and Redis',
       'Deploy to Google Cloud Run, a VPS, or local smoke tests',
-      'CLI and REST admin API for users, tokens, and access lists',
+      'CLI and REST admin API for users, tokens, and access lists'
     ],
     image: '/images/homepage/self-hosted-control.png',
     imageAlt:
       'Administrator at a harbor control tower managing servers, tokens, and deployment options',
     imageFirst: true,
-    variant: 'muted',
+    variant: 'muted'
   },
   {
     id: 'get-started',
@@ -109,17 +124,17 @@ const sections: Section[] = [
     bullets: [
       'Issue each person an hbk_ bearer token with scoped collection access',
       'Deploy the all-in-one Docker image or run the CLI on your infrastructure',
-      'See the HarborClient team hubs guide for desktop client setup',
+      'See the HarborClient team hubs guide for desktop client setup'
     ],
     image: '/images/homepage/get-started.png',
     imageAlt: 'Team boarding a ship at harbor ready to connect HarborClient clients to the hub',
     actions: [
       { text: 'Prerequisites', link: '/prerequisites', theme: 'alt' },
       { text: 'Setup', link: '/setup', theme: 'brand' },
-      { text: 'Deploy', link: '/deploy', theme: 'guide' },
+      { text: 'Deploy', link: '/deploy', theme: 'guide' }
     ],
-    variant: 'accent',
-  },
+    variant: 'accent'
+  }
 ];
 
 /**
@@ -148,7 +163,7 @@ const imageWebpSrc = (path: string) => withBase(path.replace(/\.png$/i, '.webp')
       class="home-section"
       :class="[
         section.variant ? `home-section--${section.variant}` : '',
-        section.imageFirst ? 'home-section--image-first' : '',
+        section.imageFirst ? 'home-section--image-first' : ''
       ]"
     >
       <div class="home-section__inner">
@@ -186,7 +201,7 @@ const imageWebpSrc = (path: string) => withBase(path.replace(/\.png$/i, '.webp')
               :class="{
                 'home-section__action--brand': action.theme !== 'alt' && action.theme !== 'guide',
                 'home-section__action--alt': action.theme === 'alt',
-                'home-section__action--guide': action.theme === 'guide',
+                'home-section__action--guide': action.theme === 'guide'
               }"
             >
               {{ action.text }}
@@ -330,10 +345,7 @@ const imageWebpSrc = (path: string) => withBase(path.replace(/\.png$/i, '.webp')
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
-  transition:
-    background-color 0.2s,
-    border-color 0.2s,
-    color 0.2s;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .home-section__action--brand,

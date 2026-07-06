@@ -87,6 +87,56 @@ ${sampleDbSection}${sampleRedisSection}`);
     });
   });
 
+  it('loads an optional llm section with MCP servers', () => {
+    const configPath = writeConfig(`server:
+  port: 8787
+  host: 127.0.0.1
+${sampleDbSection}${sampleRedisSection}llm:
+  providers:
+    openai:
+      apiKey: sk-test
+  models:
+    - gpt-4o
+  mcp:
+    - name: Exa
+      url: https://mcp.exa.ai/mcp
+      headers:
+        - [ { "x-api-key": "4fbd5841-94f6-43f1-87c3-f3b09cf855a8" } ]
+`);
+
+    expect(loadServerConfig(configPath)).toEqual({
+      port: 8787,
+      host: '127.0.0.1',
+      db: {
+        driver: 'postgres',
+        host: '127.0.0.1',
+        port: 5432,
+        user: 'harbor',
+        password: 'harbor',
+        database: 'harbor'
+      },
+      redis: {
+        host: '127.0.0.1',
+        port: 6380
+      },
+      llm: {
+        providers: {
+          openai: { apiKey: 'sk-test' }
+        },
+        models: ['gpt-4o'],
+        mcp: [
+          {
+            name: 'Exa',
+            url: 'https://mcp.exa.ai/mcp',
+            headers: [{ key: 'x-api-key', value: '4fbd5841-94f6-43f1-87c3-f3b09cf855a8' }]
+          }
+        ]
+      },
+      plugins: null,
+      logging: DEFAULT_LOGGING_CONFIG
+    });
+  });
+
   it('loads an optional llm section', () => {
     const configPath = writeConfig(`server:
   port: 8787

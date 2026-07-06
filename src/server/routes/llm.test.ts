@@ -5,7 +5,7 @@ import {
   createProtectedTestApp,
   sampleUserRecord
 } from '#/server/routes/test/createTestApp.js';
-import * as llmClient from '#/server/llm/client.js';
+import * as agent from '#/server/llm/agent.js';
 
 const sampleLlmConfig = {
   providers: {
@@ -113,7 +113,7 @@ describe('llm routes', () => {
   });
 
   it('allows continuation steps after the monthly limit is reached', async () => {
-    const runLlmCompletion = vi.spyOn(llmClient, 'runLlmCompletion').mockResolvedValue({
+    const runHubChatStep = vi.spyOn(agent, 'runHubChatStep').mockResolvedValue({
       content: 'Done',
       usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 }
     });
@@ -176,7 +176,7 @@ describe('llm routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(runLlmCompletion).toHaveBeenCalledOnce();
+    expect(runHubChatStep).toHaveBeenCalledOnce();
     expect(db.addLlmUsage).toHaveBeenCalledWith('user-1', expect.any(String), 1, 2);
     expect(db.createLlmUsageLog).toHaveBeenCalledWith({
       userId: 'user-1',
@@ -191,12 +191,12 @@ describe('llm routes', () => {
       hadToolCalls: false,
       messageCount: 1
     });
-    runLlmCompletion.mockRestore();
+    runHubChatStep.mockRestore();
     await app.close();
   });
 
   it('logs per-request usage for successful new-turn completions', async () => {
-    const runLlmCompletion = vi.spyOn(llmClient, 'runLlmCompletion').mockResolvedValue({
+    const runHubChatStep = vi.spyOn(agent, 'runHubChatStep').mockResolvedValue({
       content: null,
       toolCalls: [{ id: 'call-1', name: 'listCollections', arguments: '{}' }],
       usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 }
@@ -267,7 +267,7 @@ describe('llm routes', () => {
       hadToolCalls: true,
       messageCount: 2
     });
-    runLlmCompletion.mockRestore();
+    runHubChatStep.mockRestore();
     await app.close();
   });
 });

@@ -68,6 +68,11 @@ redis:
 #   claude:  claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022
 #   gemini:  gemini-1.5-pro, gemini-1.5-flash
 #
+# Optional llm.mcp connects Team Hub to remote MCP servers during POST /llm/chat/step.
+# Hub MCP tools are merged into the provider request and executed on the server;
+# HarborClient only receives passthrough (client-side) tool calls. Reload via SIGHUP
+# or POST /admin/config/reload after changes.
+#
 # llm:
 #   providers:
 #     openai:
@@ -83,6 +88,20 @@ redis:
 #     - claude-3-5-haiku-20241022
 #     - gemini-1.5-pro
 #     - gemini-1.5-flash
+#   mcp:
+#     # Exa web search (https://exa.ai) — nested-array header form from Cursor-style configs:
+#     - name: Exa
+#       url: https://mcp.exa.ai/mcp
+#       headers:
+#         - [ { "x-api-key": "your-exa-api-key" } ]
+#     # Same headers in other accepted shapes:
+#     # - name: Example MCP
+#     #   url: https://mcp.example.com/mcp
+#     #   headers: { "Authorization": "Bearer your-token" }
+#     # - name: Another MCP
+#     #   url: https://mcp.example.org/sse
+#     #   headers:
+#     #     - { "x-api-key": "your-key" }
 
 # Optional plugin source URLs for HarborClient. Omit this section to return empty lists.
 # Authenticated HarborClient instances merge these read-only endpoints into Settings → Plugins.

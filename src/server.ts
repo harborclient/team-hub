@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { mergeGlobalOptions } from '#/cli/globalOptions.js';
 import { loadServerConfig, resolveConfigPath } from '#/config/serverConfig.js';
 import { createServer } from '#/index.js';
+import { disposeHubMcpConnections } from '#/server/llm/mcpClient.js';
 import {
   connectRuntimeContext,
   createRuntimeContext,
@@ -70,6 +71,7 @@ function registerGracefulShutdown(app: FastifyInstance, ctx: RuntimeContext): vo
   const shutdown = async (signal: NodeJS.Signals) => {
     app.log.info(`Received ${signal}, shutting down.`);
     await app.close();
+    await disposeHubMcpConnections();
     await disconnectAll(ctx);
     process.exit(0);
   };

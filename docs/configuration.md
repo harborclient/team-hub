@@ -12,14 +12,14 @@ The canonical example at the repository root is [`server.yaml.example`](https://
 
 ## Sections overview
 
-| Section | Required | Live reload | Notes |
-| ------- | -------- | ----------- | ----- |
-| `server` | Yes | No | Changes to `host` or `port` require a process restart |
-| `db` | Yes | Yes | Reconnects when the raw `db` mapping changes |
-| `redis` | Yes | Yes | Reconnects when the raw `redis` mapping changes |
-| `logging` | No | No | Applied at process startup; restart after changes |
-| `llm` | No | Yes | Omit to disable hub-proxied LLM routes |
-| `plugins` | No | Yes | Omit to return empty plugin source lists |
+| Section   | Required | Live reload | Notes                                                 |
+| --------- | -------- | ----------- | ----------------------------------------------------- |
+| `server`  | Yes      | No          | Changes to `host` or `port` require a process restart |
+| `db`      | Yes      | Yes         | Reconnects when the raw `db` mapping changes          |
+| `redis`   | Yes      | Yes         | Reconnects when the raw `redis` mapping changes       |
+| `logging` | No       | No          | Applied at process startup; restart after changes     |
+| `llm`     | No       | Yes         | Omit to disable hub-proxied LLM routes                |
+| `plugins` | No       | Yes         | Omit to return empty plugin source lists              |
 
 Reload triggers while `team-hub start` is running:
 
@@ -32,10 +32,10 @@ See [Deploy — Reload config without restarting](./deploy.md#reload-config-with
 
 HTTP listen settings for the Team Hub API.
 
-| Key | Type | Required | Default | Description |
-| --- | ---- | -------- | ------- | ----------- |
-| `port` | integer or numeric string | Yes | — | TCP port (1–65535) |
-| `host` | string | Yes | — | Bind address (e.g. `127.0.0.1`, `0.0.0.0`) |
+| Key    | Type                      | Required | Default | Description                                |
+| ------ | ------------------------- | -------- | ------- | ------------------------------------------ |
+| `port` | integer or numeric string | Yes      | —       | TCP port (1–65535)                         |
+| `host` | string                    | Yes      | —       | Bind address (e.g. `127.0.0.1`, `0.0.0.0`) |
 
 ```yaml
 server:
@@ -49,14 +49,14 @@ Database backend. Set `driver` to `postgres`, `mysql`, or `firestore`. Driver-sp
 
 ### Postgres
 
-| Key | Type | Required | Description |
-| --- | ---- | -------- | ----------- |
-| `driver` | `postgres` | Yes | Database driver |
-| `host` | string | Yes | Database host or Unix socket path |
-| `port` | integer or numeric string | Yes | Database port (1–65535) |
-| `user` | string | Yes | Database user |
-| `password` | string | Yes | Database password (may be empty) |
-| `database` | string | Yes | Database name |
+| Key        | Type                      | Required | Description                       |
+| ---------- | ------------------------- | -------- | --------------------------------- |
+| `driver`   | `postgres`                | Yes      | Database driver                   |
+| `host`     | string                    | Yes      | Database host or Unix socket path |
+| `port`     | integer or numeric string | Yes      | Database port (1–65535)           |
+| `user`     | string                    | Yes      | Database user                     |
+| `password` | string                    | Yes      | Database password (may be empty)  |
+| `database` | string                    | Yes      | Database name                     |
 
 ```yaml
 db:
@@ -84,11 +84,11 @@ db:
 
 ### Firestore
 
-| Key | Type | Required | Description |
-| --- | ---- | -------- | ----------- |
-| `driver` | `firestore` | Yes | Database driver |
-| `projectId` | string | Yes | GCP project id |
-| `keyFilename` | string | No | Path to a service account JSON key file |
+| Key           | Type        | Required | Description                             |
+| ------------- | ----------- | -------- | --------------------------------------- |
+| `driver`      | `firestore` | Yes      | Database driver                         |
+| `projectId`   | string      | Yes      | GCP project id                          |
+| `keyFilename` | string      | No       | Path to a service account JSON key file |
 
 ```yaml
 db:
@@ -103,16 +103,16 @@ When `keyFilename` is omitted, Firestore uses Application Default Credentials (w
 
 Redis is required for authentication throttling. Protected routes return **503** when Redis is unreachable. See [Authentication](./auth.md).
 
-| Key | Type | Required | Default | Description |
-| --- | ---- | -------- | ------- | ----------- |
-| `host` | string | Yes | — | Redis host |
-| `port` | integer or numeric string | Yes | — | Redis port (1–65535) |
-| `password` | string | No | — | Redis AUTH password |
-| `db` | integer (0–15) or numeric string | No | `0` | Redis logical database index |
-| `keyPrefix` | string | No | — | Prefix for throttle keys |
-| `maxFailures` | integer or numeric string | No | `10` | Failed auth attempts before block |
-| `windowSeconds` | integer or numeric string | No | `900` | Sliding window for failure counting |
-| `blockSeconds` | integer or numeric string | No | `900` | Block duration after threshold |
+| Key             | Type                             | Required | Default | Description                         |
+| --------------- | -------------------------------- | -------- | ------- | ----------------------------------- |
+| `host`          | string                           | Yes      | —       | Redis host                          |
+| `port`          | integer or numeric string        | Yes      | —       | Redis port (1–65535)                |
+| `password`      | string                           | No       | —       | Redis AUTH password                 |
+| `db`            | integer (0–15) or numeric string | No       | `0`     | Redis logical database index        |
+| `keyPrefix`     | string                           | No       | —       | Prefix for throttle keys            |
+| `maxFailures`   | integer or numeric string        | No       | `10`    | Failed auth attempts before block   |
+| `windowSeconds` | integer or numeric string        | No       | `900`   | Sliding window for failure counting |
+| `blockSeconds`  | integer or numeric string        | No       | `900`   | Block duration after threshold      |
 
 ```yaml
 redis:
@@ -129,11 +129,11 @@ redis:
 
 Optional request and error logging via [Winston](https://github.com/winstonjs/winston). Applied when the process starts; restart `team-hub start` after changes.
 
-| Key | Type | Required | Default | Description |
-| --- | ---- | -------- | ------- | ----------- |
-| `level` | `debug`, `info`, `warn`, or `error` | No | `info` | Minimum severity written to transports |
-| `file` | string | No | — | Log file path; omit to disable file output |
-| `console` | boolean | No | `true` | When true, also write logs to the terminal |
+| Key       | Type                                | Required | Default | Description                                |
+| --------- | ----------------------------------- | -------- | ------- | ------------------------------------------ |
+| `level`   | `debug`, `info`, `warn`, or `error` | No       | `info`  | Minimum severity written to transports     |
+| `file`    | string                              | No       | —       | Log file path; omit to disable file output |
+| `console` | boolean                             | No       | `true`  | When true, also write logs to the terminal |
 
 Every HTTP request is logged at **debug** level (method, URL, IP, request id). Unhandled request errors are logged at **error** level. Set `level: debug` to see request logs; use `info` or higher to suppress them while still logging errors.
 
@@ -148,22 +148,53 @@ logging:
 
 Optional hub-proxied LLM access. Omit this section to disable LLM routes. At least one provider `apiKey` is required when the section is present. User access and monthly token limits are configured via the CLI — see [LLM](./llm.md).
 
-| Key | Type | Required | Description |
-| --- | ---- | -------- | ----------- |
-| `providers.openai.apiKey` | string | No* | OpenAI API key |
-| `providers.claude.apiKey` | string | No* | Anthropic API key |
-| `providers.gemini.apiKey` | string | No* | Google Gemini API key |
-| `models` | string array | No | Allow-list of model ids; omit to offer all catalog models whose provider has a key |
+| Key                       | Type         | Required | Description                                                                        |
+| ------------------------- | ------------ | -------- | ---------------------------------------------------------------------------------- |
+| `providers.openai.apiKey` | string       | No\*     | OpenAI API key                                                                     |
+| `providers.claude.apiKey` | string       | No\*     | Anthropic API key                                                                  |
+| `providers.gemini.apiKey` | string       | No\*     | Google Gemini API key                                                              |
+| `models`                  | string array | No       | Allow-list of model ids; omit to offer all catalog models whose provider has a key |
+| `mcp`                     | array        | No       | Hub MCP servers the agent may call during chat steps (see below)                   |
 
 \* At least one provider entry with a non-empty `apiKey` is required.
 
+### llm.mcp
+
+Optional MCP servers Team Hub connects to during `POST /llm/chat/step`. Tools from these servers are merged into the provider request and executed on the hub; HarborClient never sees hub MCP tool names or results directly.
+
+| Key       | Type            | Required | Description                             |
+| --------- | --------------- | -------- | --------------------------------------- |
+| `name`    | string          | Yes      | Display name for logs                   |
+| `url`     | string          | Yes      | MCP server URL (Streamable HTTP or SSE) |
+| `headers` | object or array | No       | HTTP headers sent with MCP requests     |
+
+`headers` accepts any of these shapes (they normalize to key/value pairs):
+
+- Object map: `{ "x-api-key": "..." }`
+- Array of single-key objects: `[{ "x-api-key": "..." }]`
+- One nested array level: `- [ { "x-api-key": "..." } ]`
+
+```yaml
+llm:
+  providers:
+    openai:
+      apiKey: sk-...
+  models:
+    - gpt-4o
+  mcp:
+    - name: Exa
+      url: https://mcp.exa.ai/mcp
+      headers:
+        - [{ 'x-api-key': 'your-exa-key' }]
+```
+
 Supported model ids when using the default catalog:
 
-| Provider | Model ids |
-| -------- | --------- |
-| `openai` | `gpt-4o`, `gpt-4o-mini` |
+| Provider | Model ids                                                 |
+| -------- | --------------------------------------------------------- |
+| `openai` | `gpt-4o`, `gpt-4o-mini`                                   |
 | `claude` | `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022` |
-| `gemini` | `gemini-1.5-pro`, `gemini-1.5-flash` |
+| `gemini` | `gemini-1.5-pro`, `gemini-1.5-flash`                      |
 
 ```yaml
 llm:
@@ -181,10 +212,10 @@ llm:
 
 Optional plugin source URLs for HarborClient. Omit this section to return empty lists. Authenticated HarborClient instances merge these read-only endpoints into Settings → Plugins.
 
-| Key | Type | Required | Description |
-| --- | ---- | -------- | ----------- |
-| `catalogs` | URL array | No | Plugin catalog JSON URLs |
-| `trusted` | URL array | No | Trusted plugin list JSON URLs |
+| Key        | Type      | Required | Description                   |
+| ---------- | --------- | -------- | ----------------------------- |
+| `catalogs` | URL array | No       | Plugin catalog JSON URLs      |
+| `trusted`  | URL array | No       | Trusted plugin list JSON URLs |
 
 Each entry must be a valid HTTP or HTTPS URL.
 
@@ -200,21 +231,21 @@ plugins:
 
 The all-in-one Docker image renders `/etc/team-hub/server.yaml` from environment variables on first boot (when the file is missing or empty). Restarts preserve an existing file; mount a host `server.yaml` to survive container recreation. The CLI does not read `TEAM_HUB_CONFIG`; pass `-c /etc/team-hub/server.yaml` explicitly.
 
-| Variable | Default | Maps to |
-| -------- | ------- | ------- |
-| `TEAM_HUB_HOST` | `127.0.0.1` | `server.host` |
-| `TEAM_HUB_PORT` | `8787` | `server.port` |
-| `TEAM_HUB_DB_DRIVER` | `postgres` | `db.driver` |
-| `TEAM_HUB_DB_HOST` | `127.0.0.1` | `db.host` |
-| `TEAM_HUB_DB_PORT` | `5432` | `db.port` |
-| `TEAM_HUB_DB_USER` | `harbor` | `db.user` |
-| `TEAM_HUB_DB_PASSWORD` | `harbor` | `db.password` |
-| `TEAM_HUB_DB_DATABASE` | `harbor` | `db.database` |
-| `TEAM_HUB_REDIS_HOST` | `127.0.0.1` | `redis.host` |
-| `TEAM_HUB_REDIS_PORT` | `6379` | `redis.port` |
-| `TEAM_HUB_LOGGING_LEVEL` | `info` | `logging.level` |
-| `TEAM_HUB_LOGGING_FILE` | `/var/log/team-hub/team-hub.log` | `logging.file` |
-| `TEAM_HUB_LOGGING_CONSOLE` | `true` | `logging.console` |
+| Variable                   | Default                          | Maps to           |
+| -------------------------- | -------------------------------- | ----------------- |
+| `TEAM_HUB_HOST`            | `127.0.0.1`                      | `server.host`     |
+| `TEAM_HUB_PORT`            | `8787`                           | `server.port`     |
+| `TEAM_HUB_DB_DRIVER`       | `postgres`                       | `db.driver`       |
+| `TEAM_HUB_DB_HOST`         | `127.0.0.1`                      | `db.host`         |
+| `TEAM_HUB_DB_PORT`         | `5432`                           | `db.port`         |
+| `TEAM_HUB_DB_USER`         | `harbor`                         | `db.user`         |
+| `TEAM_HUB_DB_PASSWORD`     | `harbor`                         | `db.password`     |
+| `TEAM_HUB_DB_DATABASE`     | `harbor`                         | `db.database`     |
+| `TEAM_HUB_REDIS_HOST`      | `127.0.0.1`                      | `redis.host`      |
+| `TEAM_HUB_REDIS_PORT`      | `6379`                           | `redis.port`      |
+| `TEAM_HUB_LOGGING_LEVEL`   | `info`                           | `logging.level`   |
+| `TEAM_HUB_LOGGING_FILE`    | `/var/log/team-hub/team-hub.log` | `logging.file`    |
+| `TEAM_HUB_LOGGING_CONSOLE` | `true`                           | `logging.console` |
 
 `llm` and `plugins` are not generated from environment variables in the default template. Mount a custom `server.yaml` or extend deployment tooling for those sections. Logging applies at process startup — restart the container after changing logging env vars. See [Deploy](./deploy.md).
 

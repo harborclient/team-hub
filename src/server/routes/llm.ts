@@ -4,7 +4,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import type { LlmConfig } from '#/config/llmConfig.js';
 import type { IDatabase } from '#/db/IDatabase.js';
 import { canUseLlm, isLlmModelAllowed, isOverMonthlyLimit } from '#/server/auth/accessControl.js';
-import { runLlmCompletion } from '#/server/llm/client.js';
+import { runHubChatStep } from '#/server/llm/agent.js';
 import {
   currentUsagePeriod,
   getHubModelById,
@@ -188,7 +188,7 @@ export async function registerLlmRoutes(
         return sendMonthlyLimitExceeded(reply);
       }
 
-      const result = await runLlmCompletion(llm, {
+      const result = await runHubChatStep(llm, {
         model,
         messages,
         tools,
