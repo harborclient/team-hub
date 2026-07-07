@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Update documentation layout and enhance user navigation. (`799f59b`)
 - Enhance GitHub Pages deployment configuration. (`af79228`)
 
 ## 0.3.0 - 2026-07-06
