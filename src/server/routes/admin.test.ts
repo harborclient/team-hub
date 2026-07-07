@@ -1576,6 +1576,171 @@ describe('admin environment configuration', () => {
   });
 });
 
+describe('admin snippet management', () => {
+  const adminUser = {
+    ...sampleUserRecord,
+    id: 'admin-1',
+    role: 'admin' as const,
+    collectionAccess: [],
+    environmentAccess: [],
+    snippetAccess: []
+  };
+
+  it('lists full snippet records for admin-role tokens', async () => {
+    const db = createStubDatabase();
+    db.listSnippets.mockResolvedValue([sampleSnippet]);
+    const app = await createProtectedTestApp({
+      db,
+      withValidAuth: true,
+      user: adminUser
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/admin/snippets',
+      headers: authHeader()
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      snippets: [
+        {
+          id: 'snippet-1',
+          name: 'Auth helper',
+          code: '',
+          scope: 'any',
+          sortOrder: 0,
+          createdAt: '2026-01-05T00:00:00.000Z',
+          updatedAt: '2026-01-05T00:00:00.000Z',
+          createdByUserId: sampleAttribution.createdByUserId,
+          updatedByUserId: sampleAttribution.updatedByUserId,
+          deletionLocked: false
+        }
+      ]
+    });
+
+    await app.close();
+  });
+
+  it('creates a snippet for admin-role tokens', async () => {
+    const db = createStubDatabase();
+    db.createSnippet.mockResolvedValue({
+      ...sampleSnippet,
+      name: 'New helper',
+      code: 'console.log("hi");'
+    });
+    const app = await createProtectedTestApp({
+      db,
+      withValidAuth: true,
+      user: adminUser
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/admin/snippets',
+      headers: authHeader(),
+      payload: { name: 'New helper', code: 'console.log("hi");', scope: 'any' }
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(db.createSnippet).toHaveBeenCalledWith(
+      'New helper',
+      'console.log("hi");',
+      'any',
+      'admin-1'
+    );
+
+    await app.close();
+  });
+
+  it('updates snippet content for admin-role tokens', async () => {
+    const db = createStubDatabase();
+    db.findSnippetById.mockResolvedValue(sampleSnippet);
+    db.updateSnippet.mockResolvedValue({
+      ...sampleSnippet,
+      name: 'Updated helper',
+      code: 'console.log("updated");',
+      scope: 'pre-request'
+    });
+    const app = await createProtectedTestApp({
+      db,
+      withValidAuth: true,
+      user: adminUser
+    });
+
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/admin/snippets/snippet-1',
+      headers: authHeader(),
+      payload: {
+        name: 'Updated helper',
+        code: 'console.log("updated");',
+        scope: 'pre-request'
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(db.updateSnippet).toHaveBeenCalledWith(
+      'snippet-1',
+      'Updated helper',
+      'console.log("updated");',
+      'pre-request',
+      'admin-1'
+    );
+
+    await app.close();
+  });
+
+  it('deletes a snippet for admin-role tokens', async () => {
+    const db = createStubDatabase();
+    db.findSnippetById.mockResolvedValue({ ...sampleSnippet, deletionLocked: true });
+    const app = await createProtectedTestApp({
+      db,
+      withValidAuth: true,
+      user: adminUser
+    });
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/admin/snippets/snippet-1',
+      headers: authHeader()
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(db.deleteSnippet).toHaveBeenCalledWith('snippet-1', 'admin-1');
+
+    await app.close();
+  });
+
+  it('returns 403 for user-role tokens', async () => {
+    const db = createStubDatabase();
+    const app = await createProtectedTestApp({
+      db,
+      withValidAuth: true,
+      user: sampleUserRecord
+    });
+
+    const listResponse = await app.inject({
+      method: 'GET',
+      url: '/admin/snippets',
+      headers: authHeader()
+    });
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/admin/snippets',
+      headers: authHeader(),
+      payload: { name: 'Blocked', code: '', scope: 'any' }
+    });
+
+    expect(listResponse.statusCode).toBe(403);
+    expect(createResponse.statusCode).toBe(403);
+    expect(db.listSnippets).not.toHaveBeenCalled();
+    expect(db.createSnippet).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+});
+
 describe('GET /admin/llm/models', () => {
   it('returns all hub-offered models for admin-role tokens', async () => {
     const db = createStubDatabase();

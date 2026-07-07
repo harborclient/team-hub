@@ -3,6 +3,11 @@ import type { ApiTokenRecord, UserRecord } from '#/db/types.js';
 import { userRoleSchema } from '#/server/routes/schemas/auth.js';
 import { timestampSchema } from '#/server/routes/schemas/common.js';
 import { listLlmModelsResponseSchema } from '#/server/routes/schemas/llm.js';
+import {
+  createSnippetBodySchema,
+  snippetRecordSchema,
+  snippetScopeSchema
+} from '#/server/routes/schemas/entities.js';
 
 /**
  * Lightweight id/name pair returned by admin resource list routes.
@@ -39,9 +44,38 @@ export const updateAdminEnvironmentBodySchema = z.object({
 /**
  * Request body schema for `PUT /admin/snippets/:id`.
  */
-export const updateAdminSnippetBodySchema = z.object({
-  deletionLocked: z.boolean()
-});
+export const updateAdminSnippetBodySchema = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    code: z.string().optional(),
+    scope: snippetScopeSchema.optional(),
+    deletionLocked: z.boolean().optional()
+  })
+  .superRefine((body, ctx) => {
+    const hasContentFields =
+      body.name !== undefined || body.code !== undefined || body.scope !== undefined;
+    const hasFullContent =
+      body.name !== undefined && body.code !== undefined && body.scope !== undefined;
+
+    if (hasContentFields && !hasFullContent) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'name, code, and scope must be provided together'
+      });
+    }
+
+    if (!hasContentFields && body.deletionLocked === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Provide snippet content (name, code, scope) and/or deletionLocked'
+      });
+    }
+  });
+
+/**
+ * Request body schema for `POST /admin/snippets`.
+ */
+export const createAdminSnippetBodySchema = createSnippetBodySchema;
 
 /**
  * Response body schema for `GET /admin/collections`.
@@ -61,8 +95,13 @@ export const listAdminEnvironmentsResponseSchema = z.object({
  * Response body schema for `GET /admin/snippets`.
  */
 export const listAdminSnippetsResponseSchema = z.object({
-  snippets: z.array(adminResourceOptionSchema)
+  snippets: z.array(snippetRecordSchema)
 });
+
+/**
+ * Response body schema for admin snippet create and content updates.
+ */
+export const adminSnippetRecordSchema = snippetRecordSchema;
 
 /**
  * Response body schema for `GET /admin/llm/models`.

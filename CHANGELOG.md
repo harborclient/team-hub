@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Implement admin snippet management routes and schemas. (`cdbfbf6`)
 - Implement snippet management functionality in API and database. (`9ee78dc`)
 - Update documentation layout and enhance user navigation. (`799f59b`)
 - Enhance GitHub Pages deployment configuration. (`af79228`)

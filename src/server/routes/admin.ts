@@ -19,8 +19,10 @@ import {
   createAdminTokenBodySchema,
   createAdminUserBodySchema,
   createAdminUserResponseSchema,
+  createAdminSnippetBodySchema,
   createdApiTokenResponseSchema,
   adminEntityConfigSchema,
+  adminSnippetRecordSchema,
   hubUserRecordSchema,
   listAdminCollectionsResponseSchema,
   listAdminEnvironmentsResponseSchema,
@@ -46,7 +48,8 @@ import {
   listFoldersResponseSchema,
   listRequestsResponseSchema,
   serializeFolder,
-  serializeSavedRequest
+  serializeSavedRequest,
+  serializeSnippet
 } from '#/server/routes/schemas/entities.js';
 import type { LlmConfig } from '#/config/llmConfig.js';
 import type { ReloadResult } from '#/server/runtimeContext.js';
@@ -467,12 +470,45 @@ export async function registerAdminRoutes(
 
         const snippets = await db.listSnippets();
         return reply.send({
-          snippets: snippets.map((snippet) => ({
-            id: snippet.id,
-            name: snippet.name,
-            deletionLocked: snippet.deletionLocked
-          }))
+          snippets: snippets.map((snippet) => serializeSnippet(snippet))
         });
+      } catch (error) {
+        if (handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'POST',
+    url: '/admin/snippets',
+    schema: {
+      body: createAdminSnippetBodySchema,
+      response: {
+        201: adminSnippetRecordSchema,
+        403: errorResponseSchema
+      }
+    },
+    /**
+     * Creates a snippet through the management API.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(user))) {
+          return;
+        }
+
+        const snippet = await db.createSnippet(
+          request.body.name,
+          request.body.code,
+          request.body.scope,
+          user.id
+        );
+        return reply.code(201).send(serializeSnippet(snippet));
       } catch (error) {
         if (handleDbError(reply, error)) {
           return;
@@ -607,13 +643,13 @@ export async function registerAdminRoutes(
       params: idParamSchema,
       body: updateAdminSnippetBodySchema,
       response: {
-        200: adminEntityConfigSchema,
+        200: adminSnippetRecordSchema,
         403: errorResponseSchema,
         404: errorResponseSchema
       }
     },
     /**
-     * Updates admin configuration for a snippet.
+     * Updates snippet content and/or admin configuration.
      */
     handler: async (request, reply) => {
       try {
@@ -622,17 +658,24 @@ export async function registerAdminRoutes(
           return;
         }
 
-        const snippet = await db.setSnippetDeletionLocked(
-          request.params.id,
-          request.body.deletionLocked,
-          user.id
-        );
+        const existing = await db.findSnippetById(request.params.id);
+        if (!existing) {
+          void reply.code(404).send({ error: 'Snippet not found' });
+          return;
+        }
 
-        return reply.send({
-          id: snippet.id,
-          name: snippet.name,
-          deletionLocked: snippet.deletionLocked
-        });
+        let snippet = existing;
+        const { name, code, scope, deletionLocked } = request.body;
+
+        if (name !== undefined && code !== undefined && scope !== undefined) {
+          snippet = await db.updateSnippet(request.params.id, name, code, scope, user.id);
+        }
+
+        if (deletionLocked !== undefined) {
+          snippet = await db.setSnippetDeletionLocked(request.params.id, deletionLocked, user.id);
+        }
+
+        return reply.send(serializeSnippet(snippet));
       } catch (error) {
         if (handleDbError(reply, error)) {
           return;
