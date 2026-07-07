@@ -71,12 +71,25 @@ const sampleRequest = {
   ...sampleAttribution
 };
 
+const sampleSnippet = {
+  id: 'snippet-1',
+  name: 'Auth helper',
+  code: '',
+  scope: 'any' as const,
+  sortOrder: 0,
+  createdAt: new Date('2026-01-05T00:00:00.000Z'),
+  updatedAt: new Date('2026-01-05T00:00:00.000Z'),
+  ...sampleAttribution,
+  deletionLocked: false
+};
+
 const adminUser = {
   ...sampleUserRecord,
   id: 'admin-1',
   role: 'admin' as const,
   collectionAccess: [],
-  environmentAccess: []
+  environmentAccess: [],
+  snippetAccess: []
 };
 
 /**
@@ -87,6 +100,7 @@ const adminUser = {
 function mockAccessCatalogs(db: ReturnType<typeof createStubDatabase>): void {
   db.listCollections.mockResolvedValue([sampleCollection]);
   db.listEnvironments.mockResolvedValue([sampleEnvironment]);
+  db.listSnippets.mockResolvedValue([sampleSnippet]);
 }
 
 describe('GET /admin/users', () => {
@@ -98,7 +112,8 @@ describe('GET /admin/users', () => {
       name: 'Ops',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const systemUser = {
       ...sampleUserRecord,
@@ -106,7 +121,8 @@ describe('GET /admin/users', () => {
       name: 'system',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const listedUser = {
       ...sampleUserRecord,
@@ -146,7 +162,8 @@ describe('GET /admin/users', () => {
       name: 'Ops',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const systemUser = {
       ...sampleUserRecord,
@@ -154,7 +171,8 @@ describe('GET /admin/users', () => {
       name: 'system',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const decoySystemNameUser = {
       ...sampleUserRecord,
@@ -195,7 +213,8 @@ describe('GET /admin/users', () => {
       name: 'Ops',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const listedUser = {
       ...sampleUserRecord,
@@ -226,6 +245,7 @@ describe('GET /admin/users', () => {
           role: 'admin',
           collectionAccess: [],
           environmentAccess: [],
+          snippetAccess: [],
           llmAccess: false,
           llmModels: [],
           llmMonthlyTokenLimit: null,
@@ -239,6 +259,7 @@ describe('GET /admin/users', () => {
           role: 'user',
           collectionAccess: ['*'],
           environmentAccess: ['*'],
+          snippetAccess: ['*'],
           llmAccess: false,
           llmModels: [],
           llmMonthlyTokenLimit: null,
@@ -263,14 +284,16 @@ describe('GET /admin/users', () => {
       name: 'Ops',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const listedUser = {
       ...sampleUserRecord,
       id: 'user-2',
       name: 'Alice',
       collectionAccess: ['collection-1', 'deleted-col'],
-      environmentAccess: ['missing-env']
+      environmentAccess: ['missing-env'],
+      snippetAccess: []
     };
     db.listUsers.mockResolvedValue([adminUser, listedUser]);
     mockAccessCatalogs(db);
@@ -343,7 +366,8 @@ describe('PUT /admin/users/:id', () => {
       name: 'Ops',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const targetUser = {
       ...sampleUserRecord,
@@ -402,7 +426,8 @@ describe('PUT /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const targetUser = {
       ...sampleUserRecord,
@@ -418,6 +443,7 @@ describe('PUT /admin/users/:id', () => {
       role: 'admin',
       collectionAccess: [],
       environmentAccess: [],
+      snippetAccess: [],
       llmAccess: false,
       llmModels: []
     });
@@ -454,6 +480,7 @@ describe('PUT /admin/users/:id', () => {
         role: 'admin',
         collectionAccess: [],
         environmentAccess: [],
+        snippetAccess: [],
         llmAccess: false,
         llmModels: []
       }),
@@ -469,7 +496,8 @@ describe('PUT /admin/users/:id', () => {
       ...sampleUserRecord,
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
 
     db.findUserById.mockResolvedValue(null);
@@ -507,7 +535,8 @@ describe('PUT /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const targetUser = {
       ...sampleUserRecord,
@@ -572,7 +601,8 @@ describe('PUT /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const targetUser = {
       ...sampleUserRecord,
@@ -623,7 +653,8 @@ describe('PUT /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const targetUser = {
       ...sampleUserRecord,
@@ -673,7 +704,8 @@ describe('PUT /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const targetUser = {
       ...sampleUserRecord,
@@ -724,14 +756,16 @@ describe('PUT /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const targetUser = {
       ...sampleUserRecord,
       id: 'user-2',
       name: 'Alice',
       collectionAccess: ['deleted-col'],
-      environmentAccess: ['missing-env']
+      environmentAccess: ['missing-env'],
+      snippetAccess: []
     };
     const updatedUser = {
       ...targetUser,
@@ -805,7 +839,8 @@ describe('PUT /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
 
     db.findUserById.mockResolvedValue(adminUser);
@@ -844,7 +879,8 @@ describe('PUT /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const systemUser = {
       ...sampleUserRecord,
@@ -852,7 +888,8 @@ describe('PUT /admin/users/:id', () => {
       name: 'system',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
 
     db.getSystemUserId.mockReturnValue('system-user-id');
@@ -897,7 +934,8 @@ describe('DELETE /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const targetUser = {
       ...sampleUserRecord,
@@ -943,7 +981,8 @@ describe('DELETE /admin/users/:id', () => {
       ...sampleUserRecord,
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
 
     db.findUserById.mockResolvedValue(null);
@@ -1000,7 +1039,8 @@ describe('DELETE /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
 
     db.findUserById.mockResolvedValue(adminUser);
@@ -1038,7 +1078,8 @@ describe('DELETE /admin/users/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const systemUser = {
       ...sampleUserRecord,
@@ -1046,7 +1087,8 @@ describe('DELETE /admin/users/:id', () => {
       name: 'system',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
 
     db.getSystemUserId.mockReturnValue('system-user-id');
@@ -1091,7 +1133,8 @@ describe('GET /admin/collections', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const app = await createProtectedTestApp({
       db,
@@ -1342,7 +1385,8 @@ describe('GET /admin/environments', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const app = await createProtectedTestApp({
       db,
@@ -1391,7 +1435,8 @@ describe('admin collection configuration', () => {
     id: 'admin-1',
     role: 'admin' as const,
     collectionAccess: [],
-    environmentAccess: []
+    environmentAccess: [],
+    snippetAccess: []
   };
 
   it('deletes a collection for admin-role tokens', async () => {
@@ -1475,7 +1520,8 @@ describe('admin environment configuration', () => {
     id: 'admin-1',
     role: 'admin' as const,
     collectionAccess: [],
-    environmentAccess: []
+    environmentAccess: [],
+    snippetAccess: []
   };
 
   it('deletes an environment for admin-role tokens', async () => {
@@ -1538,7 +1584,8 @@ describe('GET /admin/llm/models', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const app = await createProtectedTestApp({
       db,
@@ -1568,7 +1615,8 @@ describe('GET /admin/llm/models', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const app = await createProtectedTestApp({
       db,
@@ -1617,7 +1665,8 @@ describe('POST /admin/users', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const createdUser = {
       ...sampleUserRecord,
@@ -1651,7 +1700,8 @@ describe('POST /admin/users', () => {
         name: 'Bob',
         role: 'user',
         collectionAccess: ['*'],
-        environmentAccess: ['*']
+        environmentAccess: ['*'],
+        snippetAccess: ['*']
       }
     });
 
@@ -1674,7 +1724,8 @@ describe('POST /admin/users', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
 
     mockAccessCatalogs(db);
@@ -1729,7 +1780,8 @@ describe('GET /admin/tokens', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     db.listApiTokens.mockResolvedValue([sampleApiTokenRecord]);
 
@@ -1792,7 +1844,8 @@ describe('POST /admin/users/:id/tokens', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const targetUser = {
       ...sampleUserRecord,
@@ -1844,7 +1897,8 @@ describe('POST /admin/users/:id/tokens', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
 
     db.findUserById.mockResolvedValue(null);
@@ -1884,7 +1938,8 @@ describe('DELETE /admin/tokens/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const targetUser = {
       ...sampleUserRecord,
@@ -1932,7 +1987,8 @@ describe('DELETE /admin/tokens/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
 
     db.findApiTokenById.mockResolvedValue(null);
@@ -1962,7 +2018,8 @@ describe('DELETE /admin/tokens/:id', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const systemUser = {
       ...sampleUserRecord,
@@ -1970,7 +2027,8 @@ describe('DELETE /admin/tokens/:id', () => {
       name: 'system',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const systemToken = {
       ...sampleApiTokenRecord,
@@ -2039,7 +2097,8 @@ describe('POST /admin/config/reload', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const reloadConfig = vi.fn().mockResolvedValue({
       sections: [
@@ -2085,7 +2144,8 @@ describe('POST /admin/config/reload', () => {
       id: 'admin-1',
       role: 'admin' as const,
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
     const reloadConfig = vi.fn().mockResolvedValue({
       sections: [],

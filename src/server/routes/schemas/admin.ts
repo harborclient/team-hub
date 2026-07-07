@@ -37,6 +37,13 @@ export const updateAdminEnvironmentBodySchema = z.object({
 });
 
 /**
+ * Request body schema for `PUT /admin/snippets/:id`.
+ */
+export const updateAdminSnippetBodySchema = z.object({
+  deletionLocked: z.boolean()
+});
+
+/**
  * Response body schema for `GET /admin/collections`.
  */
 export const listAdminCollectionsResponseSchema = z.object({
@@ -51,6 +58,13 @@ export const listAdminEnvironmentsResponseSchema = z.object({
 });
 
 /**
+ * Response body schema for `GET /admin/snippets`.
+ */
+export const listAdminSnippetsResponseSchema = z.object({
+  snippets: z.array(adminResourceOptionSchema)
+});
+
+/**
  * Response body schema for `GET /admin/llm/models`.
  */
 export const listAdminLlmModelsResponseSchema = listLlmModelsResponseSchema;
@@ -60,6 +74,7 @@ export const hubUserRecordSchema = z.object({
   role: userRoleSchema,
   collectionAccess: z.array(z.string()),
   environmentAccess: z.array(z.string()),
+  snippetAccess: z.array(z.string()),
   llmAccess: z.boolean(),
   llmModels: z.array(z.string()),
   llmMonthlyTokenLimit: z.number().int().nonnegative().nullable(),
@@ -89,6 +104,7 @@ export const updateAdminUserBodySchema = z.object({
   role: userRoleSchema.optional(),
   collectionAccess: z.array(z.string()).optional(),
   environmentAccess: z.array(z.string()).optional(),
+  snippetAccess: z.array(z.string()).optional(),
   llmAccess: z.boolean().optional(),
   llmModels: z.array(z.string()).optional(),
   llmMonthlyTokenLimit: z.number().int().nonnegative().nullable().optional()
@@ -102,6 +118,7 @@ export const createAdminUserBodySchema = z.object({
   role: userRoleSchema,
   collectionAccess: z.array(z.string()).optional(),
   environmentAccess: z.array(z.string()).optional(),
+  snippetAccess: z.array(z.string()).optional(),
   llmAccess: z.boolean().optional(),
   llmModels: z.array(z.string()).optional(),
   llmMonthlyTokenLimit: z.number().int().nonnegative().nullable().optional()
@@ -181,6 +198,7 @@ export function serializeHubUser(user: UserRecord) {
     role: user.role,
     collectionAccess: user.collectionAccess,
     environmentAccess: user.environmentAccess,
+    snippetAccess: user.snippetAccess,
     llmAccess: user.llmAccess,
     llmModels: user.llmModels,
     llmMonthlyTokenLimit: user.llmMonthlyTokenLimit,

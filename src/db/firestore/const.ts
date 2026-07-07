@@ -19,6 +19,11 @@ export const COLLECTIONS_COLLECTION = 'collections';
 export const ENVIRONMENTS_COLLECTION = 'environments';
 
 /**
+ * Firestore collection name for snippet documents.
+ */
+export const SNIPPETS_COLLECTION = 'snippets';
+
+/**
  * Firestore collection name for folder documents.
  */
 export const FOLDERS_COLLECTION = 'folders';

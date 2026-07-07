@@ -56,6 +56,8 @@ describe('GET /auth/session', () => {
         role: 'admin',
         collectionAccess: [],
         environmentAccess: [],
+        snippetAccess: [],
+
         llmAccess: false
       }
     });

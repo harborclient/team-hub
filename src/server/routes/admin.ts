@@ -25,6 +25,7 @@ import {
   listAdminCollectionsResponseSchema,
   listAdminEnvironmentsResponseSchema,
   listAdminLlmModelsResponseSchema,
+  listAdminSnippetsResponseSchema,
   listAdminTokensResponseSchema,
   listAdminUsersResponseSchema,
   reloadConfigResponseSchema,
@@ -32,6 +33,7 @@ import {
   serializeHubUser,
   updateAdminCollectionBodySchema,
   updateAdminEnvironmentBodySchema,
+  updateAdminSnippetBodySchema,
   updateAdminUserBodySchema
 } from '#/server/routes/schemas/admin.js';
 import {
@@ -185,14 +187,16 @@ export async function registerAdminRoutes(
 
         const systemUserId = db.getSystemUserId();
         const llm = getLlm();
-        const [users, collections, environments] = await Promise.all([
+        const [users, collections, environments, snippets] = await Promise.all([
           db.listUsers(),
           db.listCollections(),
-          db.listEnvironments()
+          db.listEnvironments(),
+          db.listSnippets()
         ]);
         const catalogs = buildAccessCatalogIds(
           collections,
           environments,
+          snippets,
           llm ? listHubOfferedModels(llm).map((model) => model.id) : null
         );
 
@@ -205,6 +209,7 @@ export async function registerAdminRoutes(
                 {
                   collectionAccess: record.collectionAccess,
                   environmentAccess: record.environmentAccess,
+                  snippetAccess: record.snippetAccess,
                   llmModels: record.llmModels
                 },
                 catalogs
@@ -244,13 +249,15 @@ export async function registerAdminRoutes(
 
         const input = buildAdminUserCreateInput(request.body);
         const llm = getLlm();
-        const [collections, environments] = await Promise.all([
+        const [collections, environments, snippets] = await Promise.all([
           db.listCollections(),
-          db.listEnvironments()
+          db.listEnvironments(),
+          db.listSnippets()
         ]);
         const catalogs = buildAccessCatalogIds(
           collections,
           environments,
+          snippets,
           llm ? listHubOfferedModels(llm).map((model) => model.id) : null
         );
         validateSubmittedAccessLists(
@@ -258,6 +265,7 @@ export async function registerAdminRoutes(
             role: request.body.role,
             collectionAccess: request.body.collectionAccess,
             environmentAccess: request.body.environmentAccess,
+            snippetAccess: request.body.snippetAccess,
             llmModels: request.body.llmModels
           },
           catalogs
@@ -439,6 +447,43 @@ export async function registerAdminRoutes(
   });
 
   routes.route({
+    method: 'GET',
+    url: '/admin/snippets',
+    schema: {
+      response: {
+        200: listAdminSnippetsResponseSchema,
+        403: errorResponseSchema
+      }
+    },
+    /**
+     * Lists all snippets for operator user management.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(user))) {
+          return;
+        }
+
+        const snippets = await db.listSnippets();
+        return reply.send({
+          snippets: snippets.map((snippet) => ({
+            id: snippet.id,
+            name: snippet.name,
+            deletionLocked: snippet.deletionLocked
+          }))
+        });
+      } catch (error) {
+        if (handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
     method: 'DELETE',
     url: '/admin/collections/:id',
     schema: {
@@ -506,6 +551,88 @@ export async function registerAdminRoutes(
 
         await db.deleteRequest(request.params.id, user.id);
         return reply.code(204).send(null);
+      } catch (error) {
+        if (handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'DELETE',
+    url: '/admin/snippets/:id',
+    schema: {
+      params: idParamSchema,
+      response: {
+        204: emptyResponseSchema,
+        403: errorResponseSchema,
+        404: errorResponseSchema
+      }
+    },
+    /**
+     * Deletes a snippet regardless of deletion lock state.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(user))) {
+          return;
+        }
+
+        const snippet = await db.findSnippetById(request.params.id);
+        if (!snippet) {
+          void reply.code(404).send({ error: 'Snippet not found' });
+          return;
+        }
+
+        await db.deleteSnippet(request.params.id, user.id);
+        return reply.code(204).send(null);
+      } catch (error) {
+        if (handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'PUT',
+    url: '/admin/snippets/:id',
+    schema: {
+      params: idParamSchema,
+      body: updateAdminSnippetBodySchema,
+      response: {
+        200: adminEntityConfigSchema,
+        403: errorResponseSchema,
+        404: errorResponseSchema
+      }
+    },
+    /**
+     * Updates admin configuration for a snippet.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(user))) {
+          return;
+        }
+
+        const snippet = await db.setSnippetDeletionLocked(
+          request.params.id,
+          request.body.deletionLocked,
+          user.id
+        );
+
+        return reply.send({
+          id: snippet.id,
+          name: snippet.name,
+          deletionLocked: snippet.deletionLocked
+        });
       } catch (error) {
         if (handleDbError(reply, error)) {
           return;
@@ -718,13 +845,15 @@ export async function registerAdminRoutes(
         const input = buildAdminUserUpdateInput(existing, request.body);
         const role = request.body.role ?? existing.role;
         const llm = getLlm();
-        const [collections, environments] = await Promise.all([
+        const [collections, environments, snippets] = await Promise.all([
           db.listCollections(),
-          db.listEnvironments()
+          db.listEnvironments(),
+          db.listSnippets()
         ]);
         const catalogs = buildAccessCatalogIds(
           collections,
           environments,
+          snippets,
           llm ? listHubOfferedModels(llm).map((model) => model.id) : null
         );
         validateSubmittedAccessLists(
@@ -732,6 +861,7 @@ export async function registerAdminRoutes(
             role,
             collectionAccess: request.body.collectionAccess,
             environmentAccess: request.body.environmentAccess,
+            snippetAccess: request.body.snippetAccess,
             llmModels: request.body.llmModels
           },
           catalogs

@@ -4,6 +4,8 @@ import type {
   CollectionRecord,
   EnvironmentRecord,
   FolderRecord,
+  SnippetRecord,
+  SnippetScope,
   HttpMethod,
   KeyValue,
   SavedRequestRecord,
@@ -129,6 +131,61 @@ export interface EnvironmentSqlRow {
    * JSON-encoded variables column.
    */
   variables: string;
+
+  /**
+   * Creation timestamp column.
+   */
+  created_at: Date;
+
+  /**
+   * Last update timestamp column.
+   */
+  updated_at: Date;
+
+  /**
+   * Creating user identifier column.
+   */
+  created_by_user_id: string | null;
+
+  /**
+   * Last updating user identifier column.
+   */
+  updated_by_user_id: string | null;
+
+  /**
+   * Deletion lock column.
+   */
+  deletion_locked: boolean;
+}
+
+/**
+ * SQL row shape returned by relational backends for the snippets table.
+ */
+export interface SnippetSqlRow {
+  /**
+   * Primary key identifier.
+   */
+  id: string;
+
+  /**
+   * Display name column.
+   */
+  name: string;
+
+  /**
+   * JavaScript source column.
+   */
+  code: string;
+
+  /**
+   * Execution scope column.
+   */
+  scope: string;
+
+  /**
+   * Sidebar ordering column.
+   */
+  sort_order: number;
 
   /**
    * Creation timestamp column.
@@ -335,6 +392,42 @@ export function mapEnvironmentSqlRow(row: EnvironmentSqlRow): EnvironmentRecord 
     id: row.id,
     name: row.name,
     variables: readVariables(row.variables),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? row.created_at,
+    createdByUserId: row.created_by_user_id ?? null,
+    updatedByUserId: row.updated_by_user_id ?? null,
+    deletionLocked: Boolean(row.deletion_locked)
+  };
+}
+
+/**
+ * Parses a stored snippet scope string into a {@link SnippetScope}.
+ *
+ * @param value - Scope value read from the database.
+ * @returns Validated snippet scope.
+ * @throws {Error} When the stored scope is not recognized.
+ */
+function parseSnippetScope(value: string): SnippetScope {
+  if (value === 'pre-request' || value === 'post-request' || value === 'any') {
+    return value;
+  }
+
+  throw new Error(`Invalid snippet scope: ${value}`);
+}
+
+/**
+ * Maps a snake_case SQL row to the shared {@link SnippetRecord} shape.
+ *
+ * @param row - Database row from snippets.
+ * @returns Normalized snippet record for application code.
+ */
+export function mapSnippetSqlRow(row: SnippetSqlRow): SnippetRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    code: row.code,
+    scope: parseSnippetScope(row.scope),
+    sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
     createdByUserId: row.created_by_user_id ?? null,

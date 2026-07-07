@@ -16,6 +16,7 @@ export type AuditEntityType =
   | 'api_token'
   | 'collection'
   | 'environment'
+  | 'snippet'
   | 'folder'
   | 'request';
 
@@ -120,6 +121,11 @@ export interface UserRecord {
   environmentAccess: string[];
 
   /**
+   * Snippet ids the user may access, or `['*']` for all snippets.
+   */
+  snippetAccess: string[];
+
+  /**
    * When true, the user may call hub-proxied LLM routes.
    */
   llmAccess: boolean;
@@ -180,6 +186,11 @@ export interface CreateUserInput {
   environmentAccess: string[];
 
   /**
+   * Snippet access list; admins store an empty array.
+   */
+  snippetAccess: string[];
+
+  /**
    * Whether the user may use hub-proxied LLM routes.
    */
   llmAccess?: boolean;
@@ -218,6 +229,11 @@ export interface UpdateUserInput {
    * Replacement environment access list.
    */
   environmentAccess?: string[];
+
+  /**
+   * Replacement snippet access list.
+   */
+  snippetAccess?: string[];
 
   /**
    * Whether the user may use hub-proxied LLM routes.
@@ -658,6 +674,66 @@ export interface EnvironmentRecord {
 
   /**
    * When true, non-admin users cannot delete this environment.
+   */
+  deletionLocked: boolean;
+}
+
+/**
+ * Execution scope for a reusable code snippet.
+ */
+export type SnippetScope = 'pre-request' | 'post-request' | 'any';
+
+/**
+ * Persisted reusable script snippet.
+ */
+export interface SnippetRecord {
+  /**
+   * Stable snippet identifier.
+   */
+  id: string;
+
+  /**
+   * Display name shown in the sidebar.
+   */
+  name: string;
+
+  /**
+   * JavaScript source inserted into requests.
+   */
+  code: string;
+
+  /**
+   * When the snippet may be applied relative to a request.
+   */
+  scope: SnippetScope;
+
+  /**
+   * Position for sidebar ordering.
+   */
+  sortOrder: number;
+
+  /**
+   * When the snippet was created.
+   */
+  createdAt: Date;
+
+  /**
+   * When the snippet was last updated.
+   */
+  updatedAt: Date;
+
+  /**
+   * User who created the snippet.
+   */
+  createdByUserId: string | null;
+
+  /**
+   * User who last updated the snippet.
+   */
+  updatedByUserId: string | null;
+
+  /**
+   * When true, non-admin users cannot delete this snippet.
    */
   deletionLocked: boolean;
 }

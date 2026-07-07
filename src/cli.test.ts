@@ -66,6 +66,7 @@ function createMockDatabase(): IDatabase {
     role: 'user',
     collectionAccess: ['*'],
     environmentAccess: ['*'],
+    snippetAccess: ['*'],
     llmAccess: false,
     llmModels: [],
     llmMonthlyTokenLimit: null,
@@ -80,6 +81,7 @@ function createMockDatabase(): IDatabase {
     role: 'user',
     collectionAccess: ['*'],
     environmentAccess: ['*'],
+    snippetAccess: ['*'],
     llmAccess: false,
     llmModels: [],
     llmMonthlyTokenLimit: null,
@@ -91,12 +93,14 @@ function createMockDatabase(): IDatabase {
   db.listUsers.mockResolvedValue([]);
   db.listCollections.mockResolvedValue([]);
   db.listEnvironments.mockResolvedValue([]);
+  db.listSnippets.mockResolvedValue([]);
   db.updateUser.mockResolvedValue({
     id: 'user-1',
     name: 'Alice',
     role: 'user',
     collectionAccess: ['*'],
     environmentAccess: ['*'],
+    snippetAccess: ['*'],
     llmAccess: false,
     llmModels: [],
     llmMonthlyTokenLimit: null,
@@ -427,6 +431,8 @@ ${sampleDbSection}${sampleRedisSection}`);
         role: 'user',
         collectionAccess: ['*'],
         environmentAccess: ['*'],
+        snippetAccess: [],
+
         llmAccess: false,
         llmModels: [],
         llmMonthlyTokenLimit: null,
@@ -489,6 +495,8 @@ ${sampleDbSection}${sampleRedisSection}`);
         role: 'user',
         collectionAccess: ['*'],
         environmentAccess: ['*'],
+        snippetAccess: [],
+
         llmAccess: true,
         llmModels: ['*'],
         llmMonthlyTokenLimit: 100000,
@@ -546,7 +554,8 @@ ${sampleDbSection}${sampleRedisSection}`);
       name: 'Alice',
       role: 'user',
       collectionAccess: ['*'],
-      environmentAccess: ['*']
+      environmentAccess: ['*'],
+      snippetAccess: ['*']
     });
 
     expect(db.connect).toHaveBeenCalledOnce();
@@ -602,6 +611,8 @@ ${sampleDbSection}${sampleRedisSection}`);
         role: 'user',
         collectionAccess: ['*'],
         environmentAccess: ['*'],
+        snippetAccess: [],
+
         llmAccess: false,
         llmModels: [],
         llmMonthlyTokenLimit: null,
@@ -646,6 +657,8 @@ ${sampleDbSection}${sampleRedisSection}`);
       role: 'user',
       collectionAccess: ['*'],
       environmentAccess: ['*'],
+      snippetAccess: [],
+
       llmAccess: true,
       llmModels: ['*'],
       llmMonthlyTokenLimit: 100000,

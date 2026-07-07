@@ -53,6 +53,24 @@ CREATE TABLE IF NOT EXISTS environments (
 `.trim();
 
 /**
+ * DDL for creating the snippets table when absent.
+ */
+export const SNIPPETS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS snippets (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  code TEXT NOT NULL DEFAULT '',
+  scope TEXT NOT NULL DEFAULT 'any' CHECK (scope IN ('pre-request', 'post-request', 'any')),
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  updated_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  deletion_locked BOOLEAN NOT NULL DEFAULT FALSE
+);
+`.trim();
+
+/**
  * DDL for creating the folders table when absent.
  */
 export const FOLDERS_MIGRATION_SQL = `
@@ -108,6 +126,7 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
   collection_access TEXT NOT NULL DEFAULT '[]',
   environment_access TEXT NOT NULL DEFAULT '[]',
+  snippet_access TEXT NOT NULL DEFAULT '[]',
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL,
   created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
@@ -285,6 +304,25 @@ ALTER TABLE environments
 `.trim();
 
 /**
+ * Adds snippet access column to users when upgrading existing databases.
+ */
+export const USERS_SNIPPET_ACCESS_MIGRATION_SQL = `
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS snippet_access TEXT NOT NULL DEFAULT '[]';
+`.trim();
+
+/**
+ * Adds snippet access for user accounts that have collection wildcard access but no snippet access.
+ */
+export const USERS_SNIPPET_ACCESS_BACKFILL_SQL = `
+UPDATE users
+SET snippet_access = '["*"]'
+WHERE role = 'user'
+  AND snippet_access = '[]'
+  AND collection_access LIKE '%"*"%';
+`.trim();
+
+/**
  * Ordered Postgres migrations applied by {@link PostgresDatabase.migrate}.
  */
 export const POSTGRES_MIGRATIONS = [
@@ -292,6 +330,7 @@ export const POSTGRES_MIGRATIONS = [
   API_TOKENS_MIGRATION_SQL,
   COLLECTIONS_MIGRATION_SQL,
   ENVIRONMENTS_MIGRATION_SQL,
+  SNIPPETS_MIGRATION_SQL,
   FOLDERS_MIGRATION_SQL,
   REQUESTS_MIGRATION_SQL,
   AUDIT_LOG_MIGRATION_SQL,
@@ -309,5 +348,7 @@ export const POSTGRES_MIGRATIONS = [
   LLM_USAGE_MIGRATION_SQL,
   LLM_USAGE_LOG_MIGRATION_SQL,
   COLLECTIONS_DELETION_LOCKED_MIGRATION_SQL,
-  ENVIRONMENTS_DELETION_LOCKED_MIGRATION_SQL
+  ENVIRONMENTS_DELETION_LOCKED_MIGRATION_SQL,
+  USERS_SNIPPET_ACCESS_MIGRATION_SQL,
+  USERS_SNIPPET_ACCESS_BACKFILL_SQL
 ];

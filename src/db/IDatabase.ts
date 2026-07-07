@@ -9,6 +9,8 @@ import type {
   ListAuditLogOptions,
   SaveRequestInput,
   SavedRequestRecord,
+  SnippetRecord,
+  SnippetScope,
   UpdateUserInput,
   UserRecord,
   Variable,
@@ -299,6 +301,78 @@ export interface IDatabase {
     deletionLocked: boolean,
     actingUserId: string
   ): Promise<EnvironmentRecord>;
+
+  /**
+   * Lists all snippets ordered by sort order then name.
+   *
+   * @returns All snippets in the database.
+   */
+  listSnippets(): Promise<SnippetRecord[]>;
+
+  /**
+   * Creates a new snippet with the given fields.
+   *
+   * @param name - Display name for the snippet.
+   * @param code - JavaScript source for the snippet.
+   * @param scope - Execution scope for the snippet.
+   * @param actingUserId - User performing the create action.
+   * @returns The newly created snippet.
+   */
+  createSnippet(
+    name: string,
+    code: string,
+    scope: SnippetScope,
+    actingUserId: string
+  ): Promise<SnippetRecord>;
+
+  /**
+   * Updates a snippet's name, code, and scope. Sort order is left unchanged;
+   * HarborClient's snippet update flow does not manage sidebar position.
+   *
+   * @param id - Snippet ID to update.
+   * @param name - New display name.
+   * @param code - Updated JavaScript source.
+   * @param scope - Updated execution scope.
+   * @param actingUserId - User performing the update action.
+   * @returns The updated snippet.
+   */
+  updateSnippet(
+    id: string,
+    name: string,
+    code: string,
+    scope: SnippetScope,
+    actingUserId: string
+  ): Promise<SnippetRecord>;
+
+  /**
+   * Deletes a snippet.
+   *
+   * @param id - Snippet ID to delete.
+   * @param actingUserId - User performing the delete action.
+   */
+  deleteSnippet(id: string, actingUserId: string): Promise<void>;
+
+  /**
+   * Finds a snippet by stable identifier.
+   *
+   * @param id - Snippet ID to look up.
+   * @returns Matching snippet record, or null when not found.
+   */
+  findSnippetById(id: string): Promise<SnippetRecord | null>;
+
+  /**
+   * Updates whether non-admin users may delete a snippet.
+   *
+   * @param id - Snippet ID to update.
+   * @param deletionLocked - When true, user-role tokens cannot delete the snippet.
+   * @param actingUserId - Admin user performing the update.
+   * @returns Updated snippet record.
+   */
+  setSnippetDeletionLocked(
+    id: string,
+    deletionLocked: boolean,
+    actingUserId: string
+  ): Promise<SnippetRecord>;
 
   /**
    * Lists all saved requests in a collection.

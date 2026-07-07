@@ -11,6 +11,7 @@ import {
   LLM_USAGE_COLLECTION,
   LLM_USAGE_LOG_COLLECTION,
   REQUESTS_COLLECTION,
+  SNIPPETS_COLLECTION,
   USERS_COLLECTION,
   WRITE_BATCH_LIMIT
 } from '#/db/firestore/const.js';
@@ -26,6 +27,7 @@ import type {
   FirestoreLlmUsageDocument,
   FirestoreLlmUsageLogDocument,
   FirestoreRequestDocument,
+  FirestoreSnippetDocument,
   FirestoreUserDocument
 } from '#/db/firestore/types.js';
 import {
@@ -37,6 +39,7 @@ import {
   mapFirestoreLlmUsage,
   mapFirestoreLlmUsageLog,
   mapFirestoreRequest,
+  mapFirestoreSnippet,
   mapFirestoreUser
 } from '#/db/firestore/utils.js';
 import type { IDatabase } from '#/db/IDatabase.js';
@@ -59,6 +62,8 @@ import type {
   LlmUsageRecord,
   SaveRequestInput,
   SavedRequestRecord,
+  SnippetRecord,
+  SnippetScope,
   UpdateUserInput,
   UserRecord,
   Variable
@@ -142,6 +147,7 @@ export class FirestoreDatabase implements IDatabase {
   async migrate(): Promise<void> {
     await this.ensureSystemUser();
     await this.migrateOrphanTokensToBootstrapUser();
+    await this.migrateSnippetAccessBackfill();
   }
 
   /**
@@ -195,6 +201,7 @@ export class FirestoreDatabase implements IDatabase {
       role: input.role,
       collectionAccess: input.collectionAccess,
       environmentAccess: input.environmentAccess,
+      snippetAccess: input.snippetAccess,
       llmAccess: input.llmAccess ?? false,
       llmModels: input.llmModels ?? [],
       llmMonthlyTokenLimit: input.llmMonthlyTokenLimit ?? null,
@@ -284,6 +291,7 @@ export class FirestoreDatabase implements IDatabase {
     const role = input.role ?? existing.role;
     const collectionAccess = input.collectionAccess ?? existing.collectionAccess;
     const environmentAccess = input.environmentAccess ?? existing.environmentAccess;
+    const snippetAccess = input.snippetAccess ?? existing.snippetAccess;
     const llmAccess = input.llmAccess ?? existing.llmAccess;
     const llmModels = input.llmModels ?? existing.llmModels;
     const llmMonthlyTokenLimit =
@@ -297,6 +305,7 @@ export class FirestoreDatabase implements IDatabase {
       role,
       collectionAccess,
       environmentAccess,
+      snippetAccess,
       llmAccess,
       llmModels,
       llmMonthlyTokenLimit,
@@ -366,7 +375,8 @@ export class FirestoreDatabase implements IDatabase {
           name: BOOTSTRAP_USER_NAME,
           role: 'user',
           collectionAccess: ['*'],
-          environmentAccess: ['*']
+          environmentAccess: ['*'],
+          snippetAccess: ['*']
         },
         systemUserId
       );
@@ -378,6 +388,43 @@ export class FirestoreDatabase implements IDatabase {
       for (const doc of chunk) {
         batch.update(doc.ref, { userId: bootstrapUser.id });
       }
+      await batch.commit();
+    }
+  }
+
+  /**
+   * Grants wildcard snippet access to user accounts that already have wildcard collection access.
+   */
+  async migrateSnippetAccessBackfill(): Promise<void> {
+    const client = this.requireClient();
+    const snapshot = await client.collection(USERS_COLLECTION).where('role', '==', 'user').get();
+    if (snapshot.docs.length === 0) {
+      return;
+    }
+
+    let batch = client.batch();
+    let batchSize = 0;
+
+    for (const doc of snapshot.docs) {
+      const data = doc.data() as FirestoreUserDocument;
+      if ((data.snippetAccess?.length ?? 0) > 0) {
+        continue;
+      }
+      if (!data.collectionAccess?.includes('*')) {
+        continue;
+      }
+
+      batch.update(doc.ref, { snippetAccess: ['*'] });
+      batchSize += 1;
+
+      if (batchSize >= WRITE_BATCH_LIMIT) {
+        await batch.commit();
+        batch = client.batch();
+        batchSize = 0;
+      }
+    }
+
+    if (batchSize > 0) {
       await batch.commit();
     }
   }
@@ -833,6 +880,162 @@ export class FirestoreDatabase implements IDatabase {
 
     const existing = snapshot.data() as FirestoreEnvironmentDocument;
     return mapFirestoreEnvironment(id, {
+      ...existing,
+      deletionLocked,
+      updatedAt,
+      updatedByUserId: actingUserId
+    });
+  }
+
+  /**
+   * Lists all snippets ordered by sort order then name.
+   */
+  async listSnippets(): Promise<SnippetRecord[]> {
+    const snapshot = await this.requireClient().collection(SNIPPETS_COLLECTION).get();
+
+    return snapshot.docs
+      .map((doc) => mapFirestoreSnippet(doc.id, doc.data() as FirestoreSnippetDocument))
+      .sort((left, right) => {
+        if (left.sortOrder !== right.sortOrder) {
+          return left.sortOrder - right.sortOrder;
+        }
+
+        return left.name.localeCompare(right.name);
+      });
+  }
+
+  /**
+   * Creates a new snippet with the given fields.
+   *
+   * @param name - Display name for the snippet.
+   * @param code - JavaScript source for the snippet.
+   * @param scope - Execution scope for the snippet.
+   * @param actingUserId - User performing the create action.
+   */
+  async createSnippet(
+    name: string,
+    code: string,
+    scope: SnippetScope,
+    actingUserId: string
+  ): Promise<SnippetRecord> {
+    const trimmedName = trimRequiredName(name, 'Snippet name');
+    const id = randomUUID();
+    const now = new Date();
+    const existing = await this.listSnippets();
+    const maxOrder = existing.reduce((max, snippet) => Math.max(max, snippet.sortOrder), -1);
+    const data: FirestoreSnippetDocument = {
+      name: trimmedName,
+      code,
+      scope,
+      sortOrder: maxOrder + 1,
+      createdAt: now,
+      updatedAt: now,
+      createdByUserId: actingUserId,
+      updatedByUserId: actingUserId,
+      deletionLocked: false
+    };
+
+    await this.requireClient().collection(SNIPPETS_COLLECTION).doc(id).set(data);
+    await this.recordAuditEntry(actingUserId, 'create', 'snippet', id);
+    return mapFirestoreSnippet(id, data);
+  }
+
+  /**
+   * Updates a snippet's name, code, and scope. Sort order is left unchanged.
+   *
+   * @param actingUserId - User performing the update action.
+   */
+  async updateSnippet(
+    id: string,
+    name: string,
+    code: string,
+    scope: SnippetScope,
+    actingUserId: string
+  ): Promise<SnippetRecord> {
+    const trimmedName = trimRequiredName(name, 'Snippet name');
+    const updatedAt = new Date();
+    const docRef = this.requireClient().collection(SNIPPETS_COLLECTION).doc(id);
+    const snapshot = await docRef.get();
+    if (!snapshot.exists) {
+      throw new Error('Snippet not found');
+    }
+
+    const existing = snapshot.data() as FirestoreSnippetDocument;
+    const updated: FirestoreSnippetDocument = {
+      ...existing,
+      name: trimmedName,
+      code,
+      scope,
+      updatedAt,
+      updatedByUserId: actingUserId
+    };
+
+    await docRef.update({
+      name: trimmedName,
+      code,
+      scope,
+      updatedAt,
+      updatedByUserId: actingUserId
+    });
+
+    await this.recordAuditEntry(actingUserId, 'update', 'snippet', id);
+    return mapFirestoreSnippet(id, updated);
+  }
+
+  /**
+   * Deletes a snippet.
+   *
+   * @param id - Snippet ID to delete.
+   * @param actingUserId - User performing the delete action.
+   */
+  async deleteSnippet(id: string, actingUserId: string): Promise<void> {
+    await this.recordAuditEntry(actingUserId, 'delete', 'snippet', id);
+    await this.requireClient().collection(SNIPPETS_COLLECTION).doc(id).delete();
+  }
+
+  /**
+   * Finds a snippet by stable identifier.
+   *
+   * @param id - Snippet ID to look up.
+   */
+  async findSnippetById(id: string): Promise<SnippetRecord | null> {
+    const snapshot = await this.requireClient().collection(SNIPPETS_COLLECTION).doc(id).get();
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    return mapFirestoreSnippet(id, snapshot.data() as FirestoreSnippetDocument);
+  }
+
+  /**
+   * Updates whether non-admin users may delete a snippet.
+   *
+   * @param id - Snippet ID to update.
+   * @param deletionLocked - When true, user-role tokens cannot delete the snippet.
+   * @param actingUserId - Admin user performing the update.
+   */
+  async setSnippetDeletionLocked(
+    id: string,
+    deletionLocked: boolean,
+    actingUserId: string
+  ): Promise<SnippetRecord> {
+    const docRef = this.requireClient().collection(SNIPPETS_COLLECTION).doc(id);
+    const snapshot = await docRef.get();
+    if (!snapshot.exists) {
+      throw new Error('Snippet not found');
+    }
+
+    const updatedAt = new Date();
+    await docRef.update({
+      deletionLocked,
+      updatedAt,
+      updatedByUserId: actingUserId
+    });
+
+    await this.recordAuditEntry(actingUserId, 'update', 'snippet', id);
+
+    const existing = snapshot.data() as FirestoreSnippetDocument;
+    return mapFirestoreSnippet(id, {
       ...existing,
       deletionLocked,
       updatedAt,
@@ -1424,6 +1627,7 @@ export class FirestoreDatabase implements IDatabase {
       role: input.role,
       collectionAccess: input.collectionAccess,
       environmentAccess: input.environmentAccess,
+      snippetAccess: input.snippetAccess,
       llmAccess: false,
       llmModels: [],
       llmMonthlyTokenLimit: null,

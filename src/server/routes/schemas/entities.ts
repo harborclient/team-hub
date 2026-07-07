@@ -3,7 +3,8 @@ import type {
   CollectionRecord,
   EnvironmentRecord,
   FolderRecord,
-  SavedRequestRecord
+  SavedRequestRecord,
+  SnippetRecord
 } from '#/db/types.js';
 import {
   authConfigSchema,
@@ -39,6 +40,27 @@ export const environmentRecordSchema = z.object({
   id: z.string(),
   name: z.string(),
   variables: z.array(variableSchema),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+  createdByUserId: z.string().nullable(),
+  updatedByUserId: z.string().nullable(),
+  deletionLocked: z.boolean()
+});
+
+/**
+ * Valid execution scopes for persisted snippets.
+ */
+export const snippetScopeSchema = z.enum(['pre-request', 'post-request', 'any']);
+
+/**
+ * JSON shape for a persisted snippet record.
+ */
+export const snippetRecordSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  code: z.string(),
+  scope: snippetScopeSchema,
+  sortOrder: z.number().int(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   createdByUserId: z.string().nullable(),
@@ -120,6 +142,27 @@ export const updateEnvironmentBodySchema = z.object({
 });
 
 /**
+ * Request body for creating a snippet.
+ */
+export const createSnippetBodySchema = z.object({
+  name: z.string().trim().min(1),
+  code: z.string().default(''),
+  scope: snippetScopeSchema.default('any')
+});
+
+/**
+ * Request body for updating a snippet.
+ *
+ * Sort order is not included: HarborClient's snippet update flow only
+ * manages name/code/scope, so the server preserves the existing sort order.
+ */
+export const updateSnippetBodySchema = z.object({
+  name: z.string().trim().min(1),
+  code: z.string(),
+  scope: snippetScopeSchema
+});
+
+/**
  * Request body for creating a folder.
  */
 export const createFolderBodySchema = z.object({
@@ -196,6 +239,13 @@ export const listEnvironmentsResponseSchema = z.object({
 });
 
 /**
+ * List response wrapper for snippets.
+ */
+export const listSnippetsResponseSchema = z.object({
+  snippets: z.array(snippetRecordSchema)
+});
+
+/**
  * List response wrapper for folders.
  */
 export const listFoldersResponseSchema = z.object({
@@ -235,6 +285,20 @@ export function serializeCollection(record: CollectionRecord) {
  * @returns Environment with ISO timestamp strings.
  */
 export function serializeEnvironment(record: EnvironmentRecord) {
+  return {
+    ...record,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString()
+  };
+}
+
+/**
+ * Serializes a snippet record for JSON responses.
+ *
+ * @param record - Snippet record from the database layer.
+ * @returns Snippet with ISO timestamp strings.
+ */
+export function serializeSnippet(record: SnippetRecord) {
   return {
     ...record,
     createdAt: record.createdAt.toISOString(),

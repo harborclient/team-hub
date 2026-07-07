@@ -169,6 +169,10 @@ describe('PostgresDatabase api tokens', () => {
       expect.stringContaining('ADD COLUMN IF NOT EXISTS user_id'),
       []
     );
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('SET snippet_access = \'["*"]\''),
+      []
+    );
 
     await db.disconnect();
   });

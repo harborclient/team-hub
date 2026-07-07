@@ -32,6 +32,8 @@ const baseUser: UserRecord = {
   role: 'user',
   collectionAccess: ['collection-a'],
   environmentAccess: ['env-a'],
+  snippetAccess: [],
+
   llmAccess: false,
   llmModels: [],
   llmMonthlyTokenLimit: null,

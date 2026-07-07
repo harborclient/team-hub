@@ -11,13 +11,19 @@ import {
 } from '#/server/admin/userValidation.js';
 
 describe('userValidation', () => {
-  const catalogs = buildAccessCatalogIds([{ id: 'collection-1' }], [{ id: 'env-1' }], ['gpt-4o']);
+  const catalogs = buildAccessCatalogIds(
+    [{ id: 'collection-1' }],
+    [{ id: 'env-1' }],
+    [{ id: 'snippet-1' }],
+    ['gpt-4o']
+  );
 
   const existing = {
     name: 'Alice',
     role: 'user' as const,
     collectionAccess: ['collection-1'],
     environmentAccess: ['env-1'],
+    snippetAccess: ['snippet-1'],
     llmAccess: false,
     llmModels: [],
     llmMonthlyTokenLimit: null
@@ -30,15 +36,16 @@ describe('userValidation', () => {
   });
 
   it('clears access lists for admin roles', () => {
-    expect(normalizeAccessForRole('admin', [], [])).toEqual({
+    expect(normalizeAccessForRole('admin', [], [], [])).toEqual({
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     });
   });
 
   it('rejects access flags on admin roles', () => {
-    expect(() => normalizeAccessForRole('admin', ['*'], [])).toThrow(
-      'Admin users cannot have collection or environment access.'
+    expect(() => normalizeAccessForRole('admin', ['*'], [], [])).toThrow(
+      'Admin users cannot have collection, environment, or snippet access.'
     );
   });
 
@@ -61,6 +68,7 @@ describe('userValidation', () => {
       role: 'admin',
       collectionAccess: [],
       environmentAccess: [],
+      snippetAccess: [],
       llmAccess: false,
       llmModels: [],
       llmMonthlyTokenLimit: undefined
@@ -71,6 +79,7 @@ describe('userValidation', () => {
     const input = buildAdminUserUpdateInput(existing, { role: 'admin' });
     expect(input.collectionAccess).toEqual([]);
     expect(input.environmentAccess).toEqual([]);
+    expect(input.snippetAccess).toEqual([]);
     expect(input.llmAccess).toBe(false);
     expect(input.llmModels).toEqual([]);
   });
@@ -82,6 +91,7 @@ describe('userValidation', () => {
       role: undefined,
       collectionAccess: ['collection-1'],
       environmentAccess: ['env-1'],
+      snippetAccess: ['snippet-1'],
       llmAccess: true,
       llmModels: [],
       llmMonthlyTokenLimit: undefined
@@ -116,6 +126,18 @@ describe('userValidation', () => {
     ).toThrow('Unknown environment id: missing-env.');
   });
 
+  it('rejects unknown snippet ids on submit', () => {
+    expect(() =>
+      validateSubmittedAccessLists(
+        {
+          role: 'user',
+          snippetAccess: ['missing-snippet']
+        },
+        catalogs
+      )
+    ).toThrow('Unknown snippet id: missing-snippet.');
+  });
+
   it('rejects unknown LLM model ids when a catalog is available', () => {
     expect(() =>
       validateSubmittedAccessLists(
@@ -134,7 +156,8 @@ describe('userValidation', () => {
         {
           role: 'admin',
           collectionAccess: ['missing-col'],
-          environmentAccess: ['missing-env']
+          environmentAccess: ['missing-env'],
+          snippetAccess: ['missing-snippet']
         },
         catalogs
       )
@@ -147,10 +170,15 @@ describe('userValidation', () => {
         {
           collectionAccess: ['collection-1', 'deleted-col'],
           environmentAccess: ['*'],
+          snippetAccess: ['deleted-snippet'],
           llmModels: ['gpt-4o', 'retired-model']
         },
         catalogs
       )
-    ).toEqual(['Unknown collection id "deleted-col".', 'Unknown LLM model id "retired-model".']);
+    ).toEqual([
+      'Unknown collection id "deleted-col".',
+      'Unknown snippet id "deleted-snippet".',
+      'Unknown LLM model id "retired-model".'
+    ]);
   });
 });

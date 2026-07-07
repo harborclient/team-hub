@@ -1,6 +1,6 @@
 # API Endpoints
 
-Team Hub exposes a JSON HTTP API for shared collections, environments, folders, and saved requests. All routes except `GET /health` require a valid bearer token — see [Authentication](./auth.md).
+Team Hub exposes a JSON HTTP API for shared collections, environments, snippets, folders, and saved requests. All routes except `GET /health` require a valid bearer token — see [Authentication](./auth.md).
 
 ## Overview
 
@@ -463,6 +463,48 @@ Deletes an environment. Admins may delete regardless of `deletionLocked`.
 
 **Response `404`:** Unknown environment id.
 
+### GET /admin/snippets
+
+Lists all snippets as lightweight `{ id, name, deletionLocked }` records for operator user management.
+
+**Response `200`:**
+
+```json
+{
+  "snippets": [
+    { "id": "770e8400-e29b-41d4-a716-446655440001", "name": "Auth helper", "deletionLocked": false }
+  ]
+}
+```
+
+**Response `403`:** Authenticated `user`-role token.
+
+### PUT /admin/snippets/:id
+
+Updates admin configuration for a snippet. Currently supports toggling `deletionLocked`.
+
+**Request body:**
+
+```json
+{ "deletionLocked": true }
+```
+
+**Response `200`:** Updated snippet admin metadata.
+
+**Response `403`:** Authenticated `user`-role token.
+
+**Response `404`:** Unknown snippet id.
+
+### DELETE /admin/snippets/:id
+
+Deletes a snippet. Admins may delete regardless of `deletionLocked`.
+
+**Response `204`:** Snippet deleted.
+
+**Response `403`:** Authenticated `user`-role token.
+
+**Response `404`:** Unknown snippet id.
+
 ### GET /admin/llm/models
 
 Lists all hub-offered LLM models from `server.yaml` for operator user management. Unlike `GET /llm/models`, this route is not filtered by the authenticated admin's own model access list.
@@ -707,6 +749,100 @@ Deletes an environment by id.
 **Response `403`:** Environment has `deletionLocked: true` (message: `Deletion is locked for this environment.`).
 
 **Response `404`:** Environment not found.
+
+## Snippets
+
+Snippets hold reusable JavaScript for pre-request and post-request scripts.
+
+**Snippet record:**
+
+```json
+{
+  "id": "770e8400-e29b-41d4-a716-446655440001",
+  "name": "Auth helper",
+  "code": "console.log('ok');",
+  "scope": "pre-request",
+  "sortOrder": 0,
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z",
+  "createdByUserId": "user-id",
+  "updatedByUserId": "user-id",
+  "deletionLocked": false
+}
+```
+
+`scope` is one of `pre-request`, `post-request`, or `any`.
+
+### GET /snippets
+
+Lists all snippets ordered by `sortOrder` then name. Results are filtered by the authenticated user's snippet access list. `admin`-role tokens receive the full catalog but cannot mutate snippets.
+
+**Auth:** Bearer token required.
+
+**Response `200`:**
+
+```json
+{
+  "snippets": [
+    /* snippet records */
+  ]
+}
+```
+
+### POST /snippets
+
+Creates a new snippet. Requires wildcard snippet access.
+
+**Auth:** Bearer token required.
+
+**Request body:**
+
+```json
+{
+  "name": "Auth helper",
+  "code": "console.log('ok');",
+  "scope": "pre-request"
+}
+```
+
+**Response `200`:** Snippet record.
+
+**Response `400`:** Validation error.
+
+### PUT /snippets/:id
+
+Updates a snippet's name, code, scope, and sort order.
+
+**Auth:** Bearer token required.
+
+**Request body:**
+
+```json
+{
+  "name": "Auth helper",
+  "code": "console.log('ok');",
+  "scope": "any",
+  "sortOrder": 1
+}
+```
+
+**Response `200`:** Updated snippet record.
+
+**Response `400`:** Validation error.
+
+**Response `404`:** Snippet not found.
+
+### DELETE /snippets/:id
+
+Deletes a snippet by id.
+
+**Auth:** Bearer token required.
+
+**Response `204`:** No content.
+
+**Response `403`:** Snippet has `deletionLocked: true` (message: `Deletion is locked for this snippet.`).
+
+**Response `404`:** Snippet not found.
 
 Folders organize saved requests within a collection.
 

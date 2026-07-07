@@ -25,6 +25,7 @@ export const sampleUserRecord: UserRecord = {
   role: 'user',
   collectionAccess: ['*'],
   environmentAccess: ['*'],
+  snippetAccess: ['*'],
   llmAccess: false,
   llmModels: [],
   llmMonthlyTokenLimit: null,

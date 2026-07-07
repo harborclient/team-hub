@@ -18,7 +18,7 @@ export class ValidationError extends Error {
 /**
  * Returns true when an access list mixes the wildcard with specific ids.
  *
- * @param access - Collection, environment, or LLM model access ids.
+ * @param access - Collection, environment, snippet, or LLM model access ids.
  * @returns True when the list is invalid.
  */
 export function hasInvalidWildcardAccess(access: string[]): boolean {
@@ -28,7 +28,7 @@ export function hasInvalidWildcardAccess(access: string[]): boolean {
 /**
  * Validates a single access list for wildcard usage.
  *
- * @param access - Collection, environment, or LLM model access ids.
+ * @param access - Collection, environment, snippet, or LLM model access ids.
  * @throws {ValidationError} When wildcard access is combined with specific ids.
  */
 export function validateAccessList(access: string[]): void {
@@ -76,31 +76,38 @@ export function normalizeLlmForRole(
  * @param role - Target user role.
  * @param collectionAccess - Parsed collection access ids.
  * @param environmentAccess - Parsed environment access ids.
+ * @param snippetAccess - Parsed snippet access ids.
  * @returns Access lists suitable for persistence.
  * @throws {ValidationError} When admins receive access flags or lists are invalid.
  */
 export function normalizeAccessForRole(
   role: UserRole,
   collectionAccess: string[],
-  environmentAccess: string[]
-): Pick<UpdateUserInput, 'collectionAccess' | 'environmentAccess'> {
+  environmentAccess: string[],
+  snippetAccess: string[]
+): Pick<UpdateUserInput, 'collectionAccess' | 'environmentAccess' | 'snippetAccess'> {
   if (role === 'admin') {
-    if (collectionAccess.length > 0 || environmentAccess.length > 0) {
-      throw new ValidationError('Admin users cannot have collection or environment access.');
+    if (collectionAccess.length > 0 || environmentAccess.length > 0 || snippetAccess.length > 0) {
+      throw new ValidationError(
+        'Admin users cannot have collection, environment, or snippet access.'
+      );
     }
 
     return {
       collectionAccess: [],
-      environmentAccess: []
+      environmentAccess: [],
+      snippetAccess: []
     };
   }
 
   validateAccessList(collectionAccess);
   validateAccessList(environmentAccess);
+  validateAccessList(snippetAccess);
 
   return {
     collectionAccess,
-    environmentAccess
+    environmentAccess,
+    snippetAccess
   };
 }
 
@@ -117,6 +124,11 @@ export interface AccessCatalogIds {
    * Environment ids currently stored on the hub.
    */
   knownEnvironmentIds: ReadonlySet<string>;
+
+  /**
+   * Snippet ids currently stored on the hub.
+   */
+  knownSnippetIds: ReadonlySet<string>;
 
   /**
    * Hub-offered LLM model ids, or null when LLM support is not configured.
@@ -144,6 +156,11 @@ export interface SubmittedAccessLists {
   environmentAccess?: string[];
 
   /**
+   * Snippet access ids from the request body or CLI flags, when provided.
+   */
+  snippetAccess?: string[];
+
+  /**
    * LLM model access ids from the request body or CLI flags, when provided.
    */
   llmModels?: string[];
@@ -164,6 +181,11 @@ export interface StoredAccessLists {
   environmentAccess: string[];
 
   /**
+   * Persisted snippet access ids.
+   */
+  snippetAccess: string[];
+
+  /**
    * Persisted LLM model access ids.
    */
   llmModels: string[];
@@ -172,7 +194,7 @@ export interface StoredAccessLists {
 /**
  * Returns ids from an access list that are not the wildcard and not in knownIds.
  *
- * @param access - Collection, environment, or LLM model access ids.
+ * @param access - Collection, environment, snippet, or LLM model access ids.
  * @param knownIds - Valid resource ids from the hub catalog.
  * @returns Unknown ids excluding the wildcard entry.
  */
@@ -183,7 +205,7 @@ export function findUnknownAccessIds(access: string[], knownIds: ReadonlySet<str
 /**
  * Validates that every specific id in an access list exists in the catalog.
  *
- * @param access - Collection, environment, or LLM model access ids.
+ * @param access - Collection, environment, snippet, or LLM model access ids.
  * @param knownIds - Valid resource ids from the hub catalog.
  * @param resourceLabel - Singular resource label for error messages.
  * @throws {ValidationError} When one or more ids are unknown.
@@ -191,7 +213,7 @@ export function findUnknownAccessIds(access: string[], knownIds: ReadonlySet<str
 export function validateKnownAccessIds(
   access: string[],
   knownIds: ReadonlySet<string>,
-  resourceLabel: 'collection' | 'environment' | 'LLM model'
+  resourceLabel: 'collection' | 'environment' | 'snippet' | 'LLM model'
 ): void {
   const unknownIds = findUnknownAccessIds(access, knownIds);
   if (unknownIds.length === 0) {
@@ -206,7 +228,7 @@ export function validateKnownAccessIds(
  * Validates explicitly submitted access lists against hub resource catalogs.
  *
  * @param submitted - Access fields provided in the request or CLI flags.
- * @param catalogs - Known collection, environment, and LLM model ids.
+ * @param catalogs - Known collection, environment, snippet, and LLM model ids.
  * @throws {ValidationError} When a submitted list references unknown ids.
  */
 export function validateSubmittedAccessLists(
@@ -225,6 +247,10 @@ export function validateSubmittedAccessLists(
         'environment'
       );
     }
+
+    if (submitted.snippetAccess !== undefined) {
+      validateKnownAccessIds(submitted.snippetAccess, catalogs.knownSnippetIds, 'snippet');
+    }
   }
 
   if (submitted.llmModels !== undefined && catalogs.knownLlmModelIds !== null) {
@@ -236,7 +262,7 @@ export function validateSubmittedAccessLists(
  * Builds warning messages for stored access lists that reference missing resources.
  *
  * @param stored - Persisted access lists on a user record.
- * @param catalogs - Known collection, environment, and LLM model ids.
+ * @param catalogs - Known collection, environment, snippet, and LLM model ids.
  * @returns Human-readable warnings for stale access references.
  */
 export function buildAccessListWarnings(
@@ -253,6 +279,10 @@ export function buildAccessListWarnings(
     warnings.push(`Unknown environment id "${id}".`);
   }
 
+  for (const id of findUnknownAccessIds(stored.snippetAccess, catalogs.knownSnippetIds)) {
+    warnings.push(`Unknown snippet id "${id}".`);
+  }
+
   if (catalogs.knownLlmModelIds !== null) {
     for (const id of findUnknownAccessIds(stored.llmModels, catalogs.knownLlmModelIds)) {
       warnings.push(`Unknown LLM model id "${id}".`);
@@ -263,21 +293,24 @@ export function buildAccessListWarnings(
 }
 
 /**
- * Builds {@link AccessCatalogIds} from hub collection, environment, and model listings.
+ * Builds {@link AccessCatalogIds} from hub collection, environment, snippet, and model listings.
  *
  * @param collections - Collections returned by the database layer.
  * @param environments - Environments returned by the database layer.
+ * @param snippets - Snippets returned by the database layer.
  * @param llmModelIds - Hub-offered LLM model ids, or null when LLM is not configured.
  * @returns Catalog id sets for validation and warnings.
  */
 export function buildAccessCatalogIds(
   collections: ReadonlyArray<{ id: string }>,
   environments: ReadonlyArray<{ id: string }>,
+  snippets: ReadonlyArray<{ id: string }>,
   llmModelIds: string[] | null
 ): AccessCatalogIds {
   return {
     knownCollectionIds: new Set(collections.map((collection) => collection.id)),
     knownEnvironmentIds: new Set(environments.map((environment) => environment.id)),
+    knownSnippetIds: new Set(snippets.map((snippet) => snippet.id)),
     knownLlmModelIds: llmModelIds === null ? null : new Set(llmModelIds)
   };
 }
@@ -296,6 +329,7 @@ export function buildAdminUserUpdateInput(
     role: UserRole;
     collectionAccess: string[];
     environmentAccess: string[];
+    snippetAccess: string[];
     llmAccess: boolean;
     llmModels: string[];
     llmMonthlyTokenLimit: number | null;
@@ -305,6 +339,7 @@ export function buildAdminUserUpdateInput(
     role?: UserRole;
     collectionAccess?: string[];
     environmentAccess?: string[];
+    snippetAccess?: string[];
     llmAccess?: boolean;
     llmModels?: string[];
     llmMonthlyTokenLimit?: number | null;
@@ -315,7 +350,8 @@ export function buildAdminUserUpdateInput(
     role === 'admin' ? [] : (body.collectionAccess ?? existing.collectionAccess);
   const environmentAccess =
     role === 'admin' ? [] : (body.environmentAccess ?? existing.environmentAccess);
-  const access = normalizeAccessForRole(role, collectionAccess, environmentAccess);
+  const snippetAccess = role === 'admin' ? [] : (body.snippetAccess ?? existing.snippetAccess);
+  const access = normalizeAccessForRole(role, collectionAccess, environmentAccess, snippetAccess);
   const llmAccess = role === 'admin' ? false : (body.llmAccess ?? existing.llmAccess);
   const llmModels = role === 'admin' ? [] : (body.llmModels ?? existing.llmModels);
   const llm = normalizeLlmForRole(role, llmAccess, llmModels);
@@ -325,6 +361,7 @@ export function buildAdminUserUpdateInput(
     role: body.role,
     collectionAccess: access.collectionAccess,
     environmentAccess: access.environmentAccess,
+    snippetAccess: access.snippetAccess,
     llmAccess: llm.llmAccess,
     llmModels: llm.llmModels,
     llmMonthlyTokenLimit: body.llmMonthlyTokenLimit
@@ -343,13 +380,20 @@ export function buildAdminUserCreateInput(body: {
   role: UserRole;
   collectionAccess?: string[];
   environmentAccess?: string[];
+  snippetAccess?: string[];
   llmAccess?: boolean;
   llmModels?: string[];
   llmMonthlyTokenLimit?: number | null;
 }): CreateUserInput {
   const collectionAccess = body.collectionAccess ?? [];
   const environmentAccess = body.environmentAccess ?? [];
-  const access = normalizeAccessForRole(body.role, collectionAccess, environmentAccess);
+  const snippetAccess = body.snippetAccess ?? [];
+  const access = normalizeAccessForRole(
+    body.role,
+    collectionAccess,
+    environmentAccess,
+    snippetAccess
+  );
   const llmAccess = body.role === 'admin' ? false : (body.llmAccess ?? false);
   const llmModels = body.role === 'admin' ? [] : (body.llmModels ?? []);
   const llm = normalizeLlmForRole(body.role, llmAccess, llmModels);
@@ -359,6 +403,7 @@ export function buildAdminUserCreateInput(body: {
     role: body.role,
     collectionAccess: access.collectionAccess ?? [],
     environmentAccess: access.environmentAccess ?? [],
+    snippetAccess: access.snippetAccess ?? [],
     llmAccess: llm.llmAccess ?? false,
     llmModels: llm.llmModels ?? [],
     llmMonthlyTokenLimit: body.llmMonthlyTokenLimit ?? null

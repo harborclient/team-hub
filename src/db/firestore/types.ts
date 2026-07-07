@@ -41,6 +41,11 @@ export interface FirestoreUserDocument {
   environmentAccess: string[];
 
   /**
+   * Snippet ids the user may access, or `['*']` for all snippets.
+   */
+  snippetAccess: string[];
+
+  /**
    * When the user account was created.
    */
   createdAt: Date;
@@ -222,6 +227,56 @@ export interface FirestoreEnvironmentDocument {
 
   /**
    * When true, non-admin users cannot delete this environment.
+   */
+  deletionLocked?: boolean;
+}
+
+/**
+ * Firestore document shape for persisted snippets.
+ */
+export interface FirestoreSnippetDocument {
+  /**
+   * Display name for the snippet.
+   */
+  name: string;
+
+  /**
+   * JavaScript source inserted into requests.
+   */
+  code: string;
+
+  /**
+   * When the snippet may be applied relative to a request.
+   */
+  scope: 'pre-request' | 'post-request' | 'any';
+
+  /**
+   * Position for sidebar ordering.
+   */
+  sortOrder: number;
+
+  /**
+   * When the snippet was created.
+   */
+  createdAt: Date;
+
+  /**
+   * When the snippet was last updated.
+   */
+  updatedAt: Date;
+
+  /**
+   * User who created the snippet.
+   */
+  createdByUserId: string | null;
+
+  /**
+   * User who last updated the snippet.
+   */
+  updatedByUserId: string | null;
+
+  /**
+   * When true, non-admin users cannot delete this snippet.
    */
   deletionLocked?: boolean;
 }

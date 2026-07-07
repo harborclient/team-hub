@@ -2,6 +2,7 @@ import type {
   CollectionRecord,
   EnvironmentRecord,
   SavedRequestRecord,
+  SnippetRecord,
   UserRecord
 } from '#/db/types.js';
 
@@ -27,7 +28,7 @@ export function canUseManagementApi(user: UserRecord): boolean {
 
 /**
  * Returns true when the user may call entity data API routes for collections,
- * environments, folders, and requests.
+ * environments, snippets, folders, and requests.
  *
  * @param user - Authenticated user attached to the request.
  * @returns True for `user`-role accounts; false for admins.
@@ -57,6 +58,18 @@ export function canListCollections(user: UserRecord): boolean {
  * @returns True for `user`- and `admin`-role accounts.
  */
 export function canListEnvironments(user: UserRecord): boolean {
+  return canUseDataApi(user) || canUseManagementApi(user);
+}
+
+/**
+ * Returns true when the user may list snippets via `GET /snippets`.
+ *
+ * Admins receive the full catalog; mutations remain blocked.
+ *
+ * @param user - Authenticated user attached to the request.
+ * @returns True for `user`- and `admin`-role accounts.
+ */
+export function canListSnippets(user: UserRecord): boolean {
   return canUseDataApi(user) || canUseManagementApi(user);
 }
 
@@ -109,6 +122,25 @@ export function canAccessEnvironment(user: UserRecord, environmentId: string): b
 }
 
 /**
+ * Returns true when the user may read or mutate a specific snippet.
+ *
+ * @param user - Authenticated user attached to the request.
+ * @param snippetId - Snippet identifier being accessed.
+ * @returns True when the user role and access list permit the snippet.
+ */
+export function canAccessSnippet(user: UserRecord, snippetId: string): boolean {
+  if (user.role === 'admin') {
+    return false;
+  }
+
+  if (hasWildcardAccess(user.snippetAccess)) {
+    return true;
+  }
+
+  return user.snippetAccess.includes(snippetId);
+}
+
+/**
  * Returns true when the user may delete a specific collection via the data API.
  *
  * @param user - Authenticated user attached to the request.
@@ -135,6 +167,17 @@ export function canDeleteEnvironment(user: UserRecord, environment: EnvironmentR
   return (
     canUseDataApi(user) && canAccessEnvironment(user, environment.id) && !environment.deletionLocked
   );
+}
+
+/**
+ * Returns true when the user may delete a specific snippet via the data API.
+ *
+ * @param user - Authenticated user attached to the request.
+ * @param snippet - Snippet record being deleted.
+ * @returns True when the user has access and the snippet is not deletion-locked.
+ */
+export function canDeleteSnippet(user: UserRecord, snippet: SnippetRecord): boolean {
+  return canUseDataApi(user) && canAccessSnippet(user, snippet.id) && !snippet.deletionLocked;
 }
 
 /**
@@ -173,6 +216,16 @@ export function canCreateEnvironment(user: UserRecord): boolean {
 }
 
 /**
+ * Returns true when the user may create new snippets via the API.
+ *
+ * @param user - Authenticated user attached to the request.
+ * @returns True when the user has wildcard snippet access.
+ */
+export function canCreateSnippet(user: UserRecord): boolean {
+  return user.role === 'user' && hasWildcardAccess(user.snippetAccess);
+}
+
+/**
  * Filters a collection list to entries the user is allowed to see.
  *
  * @param user - Authenticated user attached to the request.
@@ -208,6 +261,25 @@ export function filterAccessibleEnvironments(
 
   const allowed = new Set(user.environmentAccess);
   return environments.filter((environment) => allowed.has(environment.id));
+}
+
+/**
+ * Filters a snippet list to entries the user is allowed to see.
+ *
+ * @param user - Authenticated user attached to the request.
+ * @param snippets - Unfiltered snippets from the database.
+ * @returns Snippets visible to the user.
+ */
+export function filterAccessibleSnippets(
+  user: UserRecord,
+  snippets: SnippetRecord[]
+): SnippetRecord[] {
+  if (user.role === 'admin' || hasWildcardAccess(user.snippetAccess)) {
+    return snippets;
+  }
+
+  const allowed = new Set(user.snippetAccess);
+  return snippets.filter((snippet) => allowed.has(snippet.id));
 }
 
 /**

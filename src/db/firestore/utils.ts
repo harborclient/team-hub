@@ -5,6 +5,7 @@ import type {
   CollectionRecord,
   EnvironmentRecord,
   FolderRecord,
+  SnippetRecord,
   LlmUsageRecord,
   LlmUsageLogRecord,
   SavedRequestRecord,
@@ -15,6 +16,7 @@ import type {
   FirestoreAuditLogDocument,
   FirestoreCollectionDocument,
   FirestoreEnvironmentDocument,
+  FirestoreSnippetDocument,
   FirestoreFolderDocument,
   FirestoreLlmUsageDocument,
   FirestoreLlmUsageLogDocument,
@@ -35,6 +37,7 @@ function parseAuditEntityType(value: string): AuditEntityType {
     value === 'api_token' ||
     value === 'collection' ||
     value === 'environment' ||
+    value === 'snippet' ||
     value === 'folder' ||
     value === 'request'
   ) {
@@ -84,6 +87,7 @@ export function mapFirestoreUser(id: string, data: FirestoreUserDocument): UserR
     role: data.role,
     collectionAccess: data.collectionAccess,
     environmentAccess: data.environmentAccess,
+    snippetAccess: data.snippetAccess ?? [],
     llmAccess: data.llmAccess ?? false,
     llmModels: data.llmModels ?? [],
     llmMonthlyTokenLimit: data.llmMonthlyTokenLimit ?? null,
@@ -183,6 +187,28 @@ export function mapFirestoreEnvironment(
     id,
     name: data.name,
     variables: data.variables,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt ?? data.createdAt,
+    createdByUserId: data.createdByUserId ?? null,
+    updatedByUserId: data.updatedByUserId ?? null,
+    deletionLocked: data.deletionLocked ?? false
+  };
+}
+
+/**
+ * Maps a Firestore document to the shared {@link SnippetRecord} shape.
+ *
+ * @param id - Document identifier.
+ * @param data - Stored snippet fields.
+ * @returns Normalized snippet record for application code.
+ */
+export function mapFirestoreSnippet(id: string, data: FirestoreSnippetDocument): SnippetRecord {
+  return {
+    id,
+    name: data.name,
+    code: data.code,
+    scope: data.scope,
+    sortOrder: data.sortOrder,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt ?? data.createdAt,
     createdByUserId: data.createdByUserId ?? null,

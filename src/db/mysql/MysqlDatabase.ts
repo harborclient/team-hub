@@ -13,10 +13,12 @@ import {
   mapEnvironmentSqlRow,
   mapFolderSqlRow,
   mapRequestSqlRow,
+  mapSnippetSqlRow,
   type CollectionSqlRow,
   type EnvironmentSqlRow,
   type FolderSqlRow,
-  type RequestSqlRow
+  type RequestSqlRow,
+  type SnippetSqlRow
 } from '#/db/entityRows.js';
 import type { IDatabase } from '#/db/IDatabase.js';
 import { MYSQL_DEFAULT_AUTH_JSON, MYSQL_MIGRATIONS } from '#/db/mysql/migrations.js';
@@ -33,6 +35,7 @@ import {
   FOLDER_SELECT_COLUMNS,
   mapUserSqlRow,
   REQUEST_SELECT_COLUMNS,
+  SNIPPET_SELECT_COLUMNS,
   serializeAccessList,
   USER_SELECT_COLUMNS,
   type UserSqlRow
@@ -64,6 +67,8 @@ import type {
   LlmUsageRecord,
   SaveRequestInput,
   SavedRequestRecord,
+  SnippetRecord,
+  SnippetScope,
   UpdateUserInput,
   UserRecord,
   Variable
@@ -72,6 +77,7 @@ import { formatZodError } from '#/db/validation.js';
 
 const COLLECTION_SELECT = `SELECT ${COLLECTION_SELECT_COLUMNS} FROM collections`;
 const ENVIRONMENT_SELECT = `SELECT ${ENVIRONMENT_SELECT_COLUMNS} FROM environments`;
+const SNIPPET_SELECT = `SELECT ${SNIPPET_SELECT_COLUMNS} FROM snippets`;
 const USER_SELECT = `SELECT ${USER_SELECT_COLUMNS} FROM users`;
 const API_TOKEN_SELECT = `SELECT ${API_TOKEN_SELECT_COLUMNS} FROM api_tokens`;
 const FOLDER_SELECT = `SELECT ${FOLDER_SELECT_COLUMNS} FROM folders`;
@@ -231,6 +237,7 @@ export class MysqlDatabase implements IDatabase {
         role,
         collection_access,
         environment_access,
+        snippet_access,
         llm_access,
         llm_models,
         llm_monthly_token_limit,
@@ -238,13 +245,14 @@ export class MysqlDatabase implements IDatabase {
         updated_at,
         created_by_user_id,
         updated_by_user_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         trimmedName,
         input.role,
         serializeAccessList(input.collectionAccess),
         serializeAccessList(input.environmentAccess),
+        serializeAccessList(input.snippetAccess),
         input.llmAccess ? 1 : 0,
         serializeAccessList(input.llmModels ?? []),
         input.llmMonthlyTokenLimit ?? null,
@@ -328,6 +336,7 @@ export class MysqlDatabase implements IDatabase {
     const role = input.role ?? existing.role;
     const collectionAccess = input.collectionAccess ?? existing.collectionAccess;
     const environmentAccess = input.environmentAccess ?? existing.environmentAccess;
+    const snippetAccess = input.snippetAccess ?? existing.snippetAccess;
     const llmAccess = input.llmAccess ?? existing.llmAccess;
     const llmModels = input.llmModels ?? existing.llmModels;
     const llmMonthlyTokenLimit =
@@ -342,6 +351,7 @@ export class MysqlDatabase implements IDatabase {
         role = ?,
         collection_access = ?,
         environment_access = ?,
+        snippet_access = ?,
         llm_access = ?,
         llm_models = ?,
         llm_monthly_token_limit = ?,
@@ -353,6 +363,7 @@ export class MysqlDatabase implements IDatabase {
         role,
         serializeAccessList(collectionAccess),
         serializeAccessList(environmentAccess),
+        serializeAccessList(snippetAccess),
         llmAccess ? 1 : 0,
         serializeAccessList(llmModels),
         llmMonthlyTokenLimit,
@@ -423,7 +434,8 @@ export class MysqlDatabase implements IDatabase {
           name: BOOTSTRAP_USER_NAME,
           role: 'user',
           collectionAccess: ['*'],
-          environmentAccess: ['*']
+          environmentAccess: ['*'],
+          snippetAccess: ['*']
         },
         systemUserId
       );
@@ -911,6 +923,176 @@ export class MysqlDatabase implements IDatabase {
     }
 
     return mapEnvironmentSqlRow(row);
+  }
+
+  /**
+   * Lists all snippets ordered by sort order then name.
+   */
+  async listSnippets(): Promise<SnippetRecord[]> {
+    const rows = await this.queryRows<SnippetSqlRow & RowDataPacket>(
+      `${SNIPPET_SELECT} ORDER BY sort_order ASC, name ASC`
+    );
+    return rows.map(mapSnippetSqlRow);
+  }
+
+  /**
+   * Creates a new snippet with the given fields.
+   *
+   * @param name - Display name for the snippet.
+   * @param code - JavaScript source for the snippet.
+   * @param scope - Execution scope for the snippet.
+   * @param actingUserId - User performing the create action.
+   */
+  async createSnippet(
+    name: string,
+    code: string,
+    scope: SnippetScope,
+    actingUserId: string
+  ): Promise<SnippetRecord> {
+    const trimmedName = trimRequiredName(name, 'Snippet name');
+    const id = randomUUID();
+    const now = new Date();
+    const maxRows = await this.queryRows<{ max_order: number | null } & RowDataPacket>(
+      'SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM snippets'
+    );
+    const maxOrder = maxRows[0]?.max_order ?? -1;
+
+    await this.executeStatement(
+      `INSERT INTO snippets (
+        id,
+        name,
+        code,
+        scope,
+        sort_order,
+        created_at,
+        updated_at,
+        created_by_user_id,
+        updated_by_user_id,
+        deletion_locked
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, trimmedName, code, scope, maxOrder + 1, now, now, actingUserId, actingUserId, 0]
+    );
+
+    await this.recordAuditEntry(actingUserId, 'create', 'snippet', id);
+
+    const rows = await this.queryRows<SnippetSqlRow & RowDataPacket>(
+      `${SNIPPET_SELECT} WHERE id = ?`,
+      [id]
+    );
+    const row = rows[0];
+    if (!row) {
+      throw new Error('Snippet not found after insert');
+    }
+
+    return mapSnippetSqlRow(row);
+  }
+
+  /**
+   * Updates a snippet's name, code, and scope. Sort order is left unchanged.
+   *
+   * @param actingUserId - User performing the update action.
+   */
+  async updateSnippet(
+    id: string,
+    name: string,
+    code: string,
+    scope: SnippetScope,
+    actingUserId: string
+  ): Promise<SnippetRecord> {
+    const trimmedName = trimRequiredName(name, 'Snippet name');
+    const updatedAt = new Date();
+    const result = await this.executeStatement(
+      `UPDATE snippets
+      SET name = ?,
+        code = ?,
+        scope = ?,
+        updated_at = ?,
+        updated_by_user_id = ?
+      WHERE id = ?`,
+      [trimmedName, code, scope, updatedAt, actingUserId, id]
+    );
+
+    if ((result.affectedRows ?? 0) === 0) {
+      throw new Error('Snippet not found');
+    }
+
+    await this.recordAuditEntry(actingUserId, 'update', 'snippet', id);
+
+    const rows = await this.queryRows<SnippetSqlRow & RowDataPacket>(
+      `${SNIPPET_SELECT} WHERE id = ?`,
+      [id]
+    );
+    const row = rows[0];
+    if (!row) {
+      throw new Error('Snippet not found');
+    }
+
+    return mapSnippetSqlRow(row);
+  }
+
+  /**
+   * Deletes a snippet.
+   *
+   * @param id - Snippet ID to delete.
+   * @param actingUserId - User performing the delete action.
+   */
+  async deleteSnippet(id: string, actingUserId: string): Promise<void> {
+    await this.recordAuditEntry(actingUserId, 'delete', 'snippet', id);
+    await this.executeStatement('DELETE FROM snippets WHERE id = ?', [id]);
+  }
+
+  /**
+   * Finds a snippet by stable identifier.
+   *
+   * @param id - Snippet ID to look up.
+   */
+  async findSnippetById(id: string): Promise<SnippetRecord | null> {
+    const rows = await this.queryRows<SnippetSqlRow & RowDataPacket>(
+      `${SNIPPET_SELECT} WHERE id = ?`,
+      [id]
+    );
+    const row = rows[0];
+    return row ? mapSnippetSqlRow(row) : null;
+  }
+
+  /**
+   * Updates whether non-admin users may delete a snippet.
+   *
+   * @param id - Snippet ID to update.
+   * @param deletionLocked - When true, user-role tokens cannot delete the snippet.
+   * @param actingUserId - Admin user performing the update.
+   */
+  async setSnippetDeletionLocked(
+    id: string,
+    deletionLocked: boolean,
+    actingUserId: string
+  ): Promise<SnippetRecord> {
+    const updatedAt = new Date();
+    const result = await this.executeStatement(
+      `UPDATE snippets
+      SET deletion_locked = ?,
+        updated_at = ?,
+        updated_by_user_id = ?
+      WHERE id = ?`,
+      [deletionLocked ? 1 : 0, updatedAt, actingUserId, id]
+    );
+
+    if ((result.affectedRows ?? 0) === 0) {
+      throw new Error('Snippet not found');
+    }
+
+    await this.recordAuditEntry(actingUserId, 'update', 'snippet', id);
+
+    const rows = await this.queryRows<SnippetSqlRow & RowDataPacket>(
+      `${SNIPPET_SELECT} WHERE id = ?`,
+      [id]
+    );
+    const row = rows[0];
+    if (!row) {
+      throw new Error('Snippet not found');
+    }
+
+    return mapSnippetSqlRow(row);
   }
 
   /**
@@ -1573,6 +1755,7 @@ export class MysqlDatabase implements IDatabase {
         role,
         collection_access,
         environment_access,
+        snippet_access,
         llm_access,
         llm_models,
         llm_monthly_token_limit,
@@ -1580,13 +1763,14 @@ export class MysqlDatabase implements IDatabase {
         updated_at,
         created_by_user_id,
         updated_by_user_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         trimmedName,
         input.role,
         serializeAccessList(input.collectionAccess),
         serializeAccessList(input.environmentAccess),
+        serializeAccessList(input.snippetAccess),
         0,
         serializeAccessList([]),
         null,

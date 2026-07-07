@@ -22,12 +22,14 @@ function createDatabaseMock(): IDatabase {
     getSystemUserId: vi.fn(() => 'system-user-id'),
     listCollections: vi.fn(async () => [{ id: 'collection-1', name: 'Shared API' }]),
     listEnvironments: vi.fn(async () => [{ id: 'env-1', name: 'Production' }]),
+    listSnippets: vi.fn(async () => [{ id: 'snippet-1', name: 'Auth helper' }]),
     createUser: vi.fn(async (input) => ({
       id: 'user-id',
       name: input.name,
       role: input.role,
       collectionAccess: input.collectionAccess ?? [],
       environmentAccess: input.environmentAccess ?? [],
+      snippetAccess: input.snippetAccess ?? [],
       llmAccess: input.llmAccess ?? false,
       llmModels: input.llmModels ?? [],
       llmMonthlyTokenLimit: input.llmMonthlyTokenLimit ?? null,
@@ -54,6 +56,7 @@ describe('userCreateCommand llm model flags', () => {
       role: 'user',
       collectionAccess: ['*'],
       environmentAccess: ['*'],
+      snippetAccess: ['*'],
       llmAccess: true,
       llmModel: ['*']
     } as Parameters<typeof userCreateCommand>[0]);
@@ -80,7 +83,8 @@ describe('userCreateCommand llm model flags', () => {
         name: 'tester',
         role: 'user',
         collectionAccess: ['missing-col'],
-        environmentAccess: ['*']
+        environmentAccess: ['*'],
+        snippetAccess: ['*']
       })
     ).rejects.toThrow('Unknown collection id: missing-col.');
 
@@ -98,7 +102,8 @@ describe('userCreateCommand llm model flags', () => {
         name: 'admin-user',
         role: 'admin',
         collectionAccess: ['*'],
-        environmentAccess: []
+        environmentAccess: [],
+        snippetAccess: []
       })
     ).rejects.toThrow(InvalidArgumentError);
 
@@ -108,9 +113,10 @@ describe('userCreateCommand llm model flags', () => {
         name: 'admin-user',
         role: 'admin',
         collectionAccess: ['*'],
-        environmentAccess: []
+        environmentAccess: [],
+        snippetAccess: []
       })
-    ).rejects.toThrow('Admin users cannot have collection or environment access.');
+    ).rejects.toThrow('Admin users cannot have collection, environment, or snippet access.');
 
     expect(db.createUser).not.toHaveBeenCalled();
   });

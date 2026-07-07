@@ -13,10 +13,12 @@ import {
   mapEnvironmentSqlRow,
   mapFolderSqlRow,
   mapRequestSqlRow,
+  mapSnippetSqlRow,
   type CollectionSqlRow,
   type EnvironmentSqlRow,
   type FolderSqlRow,
-  type RequestSqlRow
+  type RequestSqlRow,
+  type SnippetSqlRow
 } from '#/db/entityRows.js';
 import type { IDatabase } from '#/db/IDatabase.js';
 import { POSTGRES_MIGRATIONS } from '#/db/postgres/migrations.js';
@@ -33,6 +35,7 @@ import {
   FOLDER_SELECT_COLUMNS,
   mapUserSqlRow,
   REQUEST_SELECT_COLUMNS,
+  SNIPPET_SELECT_COLUMNS,
   serializeAccessList,
   USER_SELECT_COLUMNS,
   type UserSqlRow
@@ -64,6 +67,8 @@ import type {
   LlmUsageRecord,
   SaveRequestInput,
   SavedRequestRecord,
+  SnippetRecord,
+  SnippetScope,
   UpdateUserInput,
   UserRecord,
   Variable
@@ -75,6 +80,7 @@ const { Pool } = pg;
 
 const COLLECTION_SELECT = `SELECT ${COLLECTION_SELECT_COLUMNS} FROM collections`;
 const ENVIRONMENT_SELECT = `SELECT ${ENVIRONMENT_SELECT_COLUMNS} FROM environments`;
+const SNIPPET_SELECT = `SELECT ${SNIPPET_SELECT_COLUMNS} FROM snippets`;
 const USER_SELECT = `SELECT ${USER_SELECT_COLUMNS} FROM users`;
 const API_TOKEN_SELECT = `SELECT ${API_TOKEN_SELECT_COLUMNS} FROM api_tokens`;
 const FOLDER_SELECT = `SELECT ${FOLDER_SELECT_COLUMNS} FROM folders`;
@@ -238,6 +244,7 @@ export class PostgresDatabase implements IDatabase {
         role,
         collection_access,
         environment_access,
+        snippet_access,
         llm_access,
         llm_models,
         llm_monthly_token_limit,
@@ -245,7 +252,7 @@ export class PostgresDatabase implements IDatabase {
         updated_at,
         created_by_user_id,
         updated_by_user_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING ${USER_SELECT_COLUMNS}`,
       [
         id,
@@ -253,6 +260,7 @@ export class PostgresDatabase implements IDatabase {
         input.role,
         serializeAccessList(input.collectionAccess),
         serializeAccessList(input.environmentAccess),
+        serializeAccessList(input.snippetAccess),
         input.llmAccess ?? false,
         serializeAccessList(input.llmModels ?? []),
         input.llmMonthlyTokenLimit ?? null,
@@ -328,6 +336,7 @@ export class PostgresDatabase implements IDatabase {
     const role = input.role ?? existing.role;
     const collectionAccess = input.collectionAccess ?? existing.collectionAccess;
     const environmentAccess = input.environmentAccess ?? existing.environmentAccess;
+    const snippetAccess = input.snippetAccess ?? existing.snippetAccess;
     const llmAccess = input.llmAccess ?? existing.llmAccess;
     const llmModels = input.llmModels ?? existing.llmModels;
     const llmMonthlyTokenLimit =
@@ -342,17 +351,19 @@ export class PostgresDatabase implements IDatabase {
         role = $2,
         collection_access = $3,
         environment_access = $4,
-        llm_access = $5,
-        llm_models = $6,
-        llm_monthly_token_limit = $7,
-        updated_at = $8,
-        updated_by_user_id = $9
-      WHERE id = $10`,
+        snippet_access = $5,
+        llm_access = $6,
+        llm_models = $7,
+        llm_monthly_token_limit = $8,
+        updated_at = $9,
+        updated_by_user_id = $10
+      WHERE id = $11`,
       [
         name,
         role,
         serializeAccessList(collectionAccess),
         serializeAccessList(environmentAccess),
+        serializeAccessList(snippetAccess),
         llmAccess,
         serializeAccessList(llmModels),
         llmMonthlyTokenLimit,
@@ -423,7 +434,8 @@ export class PostgresDatabase implements IDatabase {
           name: BOOTSTRAP_USER_NAME,
           role: 'user',
           collectionAccess: ['*'],
-          environmentAccess: ['*']
+          environmentAccess: ['*'],
+          snippetAccess: ['*']
         },
         systemUserId
       );
@@ -892,6 +904,163 @@ export class PostgresDatabase implements IDatabase {
     }
 
     return mapEnvironmentSqlRow(row);
+  }
+
+  /**
+   * Lists all snippets ordered by sort order then name.
+   */
+  async listSnippets(): Promise<SnippetRecord[]> {
+    const result = await this.query<SnippetSqlRow>(
+      `${SNIPPET_SELECT} ORDER BY sort_order ASC, name ASC`
+    );
+    return result.rows.map(mapSnippetSqlRow);
+  }
+
+  /**
+   * Creates a new snippet with the given fields.
+   *
+   * @param name - Display name for the snippet.
+   * @param code - JavaScript source for the snippet.
+   * @param scope - Execution scope for the snippet.
+   * @param actingUserId - User performing the create action.
+   */
+  async createSnippet(
+    name: string,
+    code: string,
+    scope: SnippetScope,
+    actingUserId: string
+  ): Promise<SnippetRecord> {
+    const trimmedName = trimRequiredName(name, 'Snippet name');
+    const id = randomUUID();
+    const now = new Date();
+    const maxResult = await this.query<{ max_order: number | null }>(
+      'SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM snippets'
+    );
+    const maxOrder = maxResult.rows[0]?.max_order ?? -1;
+
+    const result = await this.query<SnippetSqlRow>(
+      `INSERT INTO snippets (
+        id,
+        name,
+        code,
+        scope,
+        sort_order,
+        created_at,
+        updated_at,
+        created_by_user_id,
+        updated_by_user_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING ${SNIPPET_SELECT_COLUMNS}`,
+      [id, trimmedName, code, scope, maxOrder + 1, now, now, actingUserId, actingUserId]
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error('Snippet not found after insert');
+    }
+
+    await this.recordAuditEntry(actingUserId, 'create', 'snippet', id);
+
+    return mapSnippetSqlRow(row);
+  }
+
+  /**
+   * Updates a snippet's name, code, and scope. Sort order is left unchanged.
+   *
+   * @param actingUserId - User performing the update action.
+   */
+  async updateSnippet(
+    id: string,
+    name: string,
+    code: string,
+    scope: SnippetScope,
+    actingUserId: string
+  ): Promise<SnippetRecord> {
+    const trimmedName = trimRequiredName(name, 'Snippet name');
+    const updatedAt = new Date();
+    const result = await this.query(
+      `UPDATE snippets
+      SET name = $1,
+        code = $2,
+        scope = $3,
+        updated_at = $4,
+        updated_by_user_id = $5
+      WHERE id = $6`,
+      [trimmedName, code, scope, updatedAt, actingUserId, id]
+    );
+
+    if ((result.rowCount ?? 0) === 0) {
+      throw new Error('Snippet not found');
+    }
+
+    await this.recordAuditEntry(actingUserId, 'update', 'snippet', id);
+
+    const selectResult = await this.query<SnippetSqlRow>(`${SNIPPET_SELECT} WHERE id = $1`, [id]);
+    const row = selectResult.rows[0];
+    if (!row) {
+      throw new Error('Snippet not found');
+    }
+
+    return mapSnippetSqlRow(row);
+  }
+
+  /**
+   * Deletes a snippet.
+   *
+   * @param id - Snippet ID to delete.
+   * @param actingUserId - User performing the delete action.
+   */
+  async deleteSnippet(id: string, actingUserId: string): Promise<void> {
+    await this.recordAuditEntry(actingUserId, 'delete', 'snippet', id);
+    await this.query('DELETE FROM snippets WHERE id = $1', [id]);
+  }
+
+  /**
+   * Finds a snippet by stable identifier.
+   *
+   * @param id - Snippet ID to look up.
+   */
+  async findSnippetById(id: string): Promise<SnippetRecord | null> {
+    const result = await this.query<SnippetSqlRow>(`${SNIPPET_SELECT} WHERE id = $1`, [id]);
+    const row = result.rows[0];
+    return row ? mapSnippetSqlRow(row) : null;
+  }
+
+  /**
+   * Updates whether non-admin users may delete a snippet.
+   *
+   * @param id - Snippet ID to update.
+   * @param deletionLocked - When true, user-role tokens cannot delete the snippet.
+   * @param actingUserId - Admin user performing the update.
+   */
+  async setSnippetDeletionLocked(
+    id: string,
+    deletionLocked: boolean,
+    actingUserId: string
+  ): Promise<SnippetRecord> {
+    const updatedAt = new Date();
+    const result = await this.query(
+      `UPDATE snippets
+      SET deletion_locked = $1,
+        updated_at = $2,
+        updated_by_user_id = $3
+      WHERE id = $4`,
+      [deletionLocked, updatedAt, actingUserId, id]
+    );
+
+    if ((result.rowCount ?? 0) === 0) {
+      throw new Error('Snippet not found');
+    }
+
+    await this.recordAuditEntry(actingUserId, 'update', 'snippet', id);
+
+    const selectResult = await this.query<SnippetSqlRow>(`${SNIPPET_SELECT} WHERE id = $1`, [id]);
+    const row = selectResult.rows[0];
+    if (!row) {
+      throw new Error('Snippet not found');
+    }
+
+    return mapSnippetSqlRow(row);
   }
 
   /**
@@ -1547,6 +1716,7 @@ export class PostgresDatabase implements IDatabase {
         role,
         collection_access,
         environment_access,
+        snippet_access,
         llm_access,
         llm_models,
         llm_monthly_token_limit,
@@ -1554,13 +1724,14 @@ export class PostgresDatabase implements IDatabase {
         updated_at,
         created_by_user_id,
         updated_by_user_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         id,
         SYSTEM_USER_NAME,
         input.role,
         serializeAccessList(input.collectionAccess),
         serializeAccessList(input.environmentAccess),
+        serializeAccessList(input.snippetAccess),
         false,
         serializeAccessList([]),
         null,

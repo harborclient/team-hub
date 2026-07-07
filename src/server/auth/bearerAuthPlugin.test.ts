@@ -18,6 +18,8 @@ const sampleUser: UserRecord = {
   role: 'user',
   collectionAccess: ['*'],
   environmentAccess: ['*'],
+  snippetAccess: [],
+
   llmAccess: false,
   llmModels: [],
   llmMonthlyTokenLimit: null,

@@ -9,6 +9,8 @@ const baseUser: UserRecord = {
   role: 'user',
   collectionAccess: ['collection-1'],
   environmentAccess: ['*'],
+  snippetAccess: [],
+
   llmAccess: true,
   llmModels: ['gpt-4o'],
   llmMonthlyTokenLimit: 100_000,
@@ -55,6 +57,8 @@ describe('buildSessionPayload', () => {
       role: 'admin',
       collectionAccess: [],
       environmentAccess: [],
+      snippetAccess: [],
+
       llmAccess: false
     };
 
@@ -82,6 +86,8 @@ describe('buildSessionPayload', () => {
       role: 'admin',
       collectionAccess: [],
       environmentAccess: [],
+      snippetAccess: [],
+
       llmAccess: true,
       llmModels: ['*']
     };

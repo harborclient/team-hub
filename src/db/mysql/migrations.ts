@@ -60,6 +60,26 @@ CREATE TABLE IF NOT EXISTS environments (
 `.trim();
 
 /**
+ * DDL for creating the snippets table when absent.
+ */
+export const SNIPPETS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS snippets (
+  id VARCHAR(36) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  code LONGTEXT NOT NULL,
+  scope VARCHAR(32) NOT NULL DEFAULT 'any',
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  created_by_user_id VARCHAR(36) NULL,
+  updated_by_user_id VARCHAR(36) NULL,
+  deletion_locked TINYINT(1) NOT NULL DEFAULT 0,
+  FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+)
+`.trim();
+
+/**
  * DDL for creating the folders table when absent.
  */
 export const FOLDERS_MIGRATION_SQL = `
@@ -119,6 +139,7 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(16) NOT NULL,
   collection_access LONGTEXT NOT NULL,
   environment_access LONGTEXT NOT NULL,
+  snippet_access LONGTEXT NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   created_by_user_id VARCHAR(36) NULL,
@@ -309,6 +330,25 @@ ALTER TABLE environments
 `.trim();
 
 /**
+ * Adds snippet access column to users when upgrading existing databases.
+ */
+export const USERS_SNIPPET_ACCESS_MIGRATION_SQL = `
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS snippet_access LONGTEXT NOT NULL DEFAULT '[]';
+`.trim();
+
+/**
+ * Adds snippet access for user accounts that have collection wildcard access but no snippet access.
+ */
+export const USERS_SNIPPET_ACCESS_BACKFILL_SQL = `
+UPDATE users
+SET snippet_access = '["*"]'
+WHERE role = 'user'
+  AND snippet_access = '[]'
+  AND collection_access LIKE '%"*"%';
+`.trim();
+
+/**
  * Ordered MySQL migrations applied by {@link MysqlDatabase.migrate}.
  */
 export const MYSQL_MIGRATIONS = [
@@ -316,6 +356,7 @@ export const MYSQL_MIGRATIONS = [
   API_TOKENS_MIGRATION_SQL,
   COLLECTIONS_MIGRATION_SQL,
   ENVIRONMENTS_MIGRATION_SQL,
+  SNIPPETS_MIGRATION_SQL,
   FOLDERS_MIGRATION_SQL,
   REQUESTS_MIGRATION_SQL,
   AUDIT_LOG_MIGRATION_SQL,
@@ -333,5 +374,7 @@ export const MYSQL_MIGRATIONS = [
   LLM_USAGE_MIGRATION_SQL,
   LLM_USAGE_LOG_MIGRATION_SQL,
   COLLECTIONS_DELETION_LOCKED_MIGRATION_SQL,
-  ENVIRONMENTS_DELETION_LOCKED_MIGRATION_SQL
+  ENVIRONMENTS_DELETION_LOCKED_MIGRATION_SQL,
+  USERS_SNIPPET_ACCESS_MIGRATION_SQL,
+  USERS_SNIPPET_ACCESS_BACKFILL_SQL
 ];

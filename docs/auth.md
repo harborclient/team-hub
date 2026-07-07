@@ -12,7 +12,7 @@ team-hub migrate
 
 For Postgres and MySQL this creates the `users` and `api_tokens` tables (plus entity tables). Firestore uses schemaless `users` and `apiTokens` collections.
 
-Migration also assigns any legacy tokens without an owner to a bootstrap user named `bootstrap` with full (`*`) collection and environment access. Create named users, issue new tokens, then revoke bootstrap tokens when you are ready.
+Migration also assigns any legacy tokens without an owner to a bootstrap user named `bootstrap` with full (`*`) collection, environment, and snippet access. Create named users, issue new tokens, then revoke bootstrap tokens when you are ready.
 
 ## Roles and access
 
@@ -23,17 +23,17 @@ Every account has a role of either `user` or `admin`. Set the role when creating
 | Role | Purpose | Entity HTTP API | Management HTTP API | API tokens |
 | ---- | ------- | --------------- | ------------------- | ---------- |
 | `user` | HarborClient desktop clients | Scoped — [API Endpoints](./endpoints.md) | No (403) | Yes |
-| `admin` | Operators and automation | List on `GET /collections` and `GET /environments`; delete and configure deletion lock via `/admin/*` | List/update/delete users; configure collections and environments via `/admin/*` | Yes |
+| `admin` | Operators and automation | List on `GET /collections`, `GET /environments`, and `GET /snippets`; delete and configure deletion lock via `/admin/*` | List/update/delete users; configure collections, environments, and snippets via `/admin/*` | Yes |
 
 **`admin` accounts**
 
 - Can receive bearer tokens for REST authentication.
-- May call `GET /collections` and `GET /environments` (returns the full catalog; no content mutations).
-- Cannot read or mutate individual collection/environment content, folders, or requests (403 on other entity routes).
-- Can delete collections and environments via `DELETE /admin/collections/:id` and `DELETE /admin/environments/:id`, and toggle a per-entity `deletionLocked` flag via `PUT /admin/collections/:id` and `PUT /admin/environments/:id`.
-- Do not use access lists (always stored empty); passing `--collection-access` or `--environment-access` on create or update is rejected.
+- May call `GET /collections`, `GET /environments`, and `GET /snippets` (returns the full catalog; no content mutations).
+- Cannot read or mutate individual collection/environment/snippet content, folders, or requests (403 on other entity routes).
+- Can delete collections, environments, and snippets via `DELETE /admin/collections/:id`, `DELETE /admin/environments/:id`, and `DELETE /admin/snippets/:id`, and toggle a per-entity `deletionLocked` flag via the matching `PUT /admin/*/:id` routes.
+- Do not use access lists (always stored empty); passing `--collection-access`, `--environment-access`, or `--snippet-access` on create or update is rejected.
 - Can list, update, and delete user accounts via `GET`, `PUT`, and `DELETE /admin/users`. Deleting a user permanently removes their API tokens.
-- Can list collection, environment, and hub LLM model metadata via `GET /admin/collections`, `GET /admin/environments`, and `GET /admin/llm/models` when assigning user access lists. List entries include `deletionLocked`.
+- Can list collection, environment, snippet, and hub LLM model metadata via `GET /admin/collections`, `GET /admin/environments`, `GET /admin/snippets`, and `GET /admin/llm/models` when assigning user access lists. List entries include `deletionLocked`.
 
 **`user` accounts**
 
@@ -51,7 +51,7 @@ Access lists scope what a `user`-role account can see and change on entity route
 
 - `['*']` grants all resources of that type.
 - The wildcard must be the only entry — the CLI rejects lists like `['*', '<uuid>']`.
-- Set via `--collection-access '*'` or `--environment-access '*'`.
+- Set via `--collection-access '*'`, `--environment-access '*'`, or `--snippet-access '*'`.
 
 **What each list controls**
 
@@ -59,20 +59,21 @@ Access lists scope what a `user`-role account can see and change on entity route
 | ----- | ------- |
 | `collectionAccess` | Collections, and all folders and requests inside allowed collections |
 | `environmentAccess` | Environments only |
+| `snippetAccess` | Snippets only |
 
 **Permission matrix for `user` accounts**
 
-| Access config | List (GET) | Create top-level resource (POST `/collections` or `/environments`) | CRUD inside allowed scope |
-| ------------- | ---------- | ------------------------------------------------------------------ | ------------------------- |
+| Access config | List (GET) | Create top-level resource (POST `/collections`, `/environments`, or `/snippets`) | CRUD inside allowed scope |
+| ------------- | ---------- | ------------------------------------------------------------------------------ | ------------------------- |
 | `['*']` | All | Yes | Yes |
-| Specific UUIDs | Only listed ids | No (403) | Yes for listed collections/environments |
+| Specific UUIDs | Only listed ids | No (403) | Yes for listed collections/environments/snippets |
 | `[]` | Empty (200, `[]`) | No | 403 on any entity operation |
 
-Scoped users can create folders and requests **within** collections they can access. Only **new top-level** collections or environments require wildcard access on the relevant list.
+Scoped users can create folders and requests **within** collections they can access. Only **new top-level** collections, environments, or snippets require wildcard access on the relevant list.
 
 **Token inheritance**
 
-API tokens do not carry their own scope. Each token inherits the owning user's `collectionAccess` and `environmentAccess` entirely.
+API tokens do not carry their own scope. Each token inherits the owning user's `collectionAccess`, `environmentAccess`, and `snippetAccess` entirely.
 
 **HTTP outcomes**
 

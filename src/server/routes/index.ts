@@ -7,6 +7,7 @@ import { registerAdminRoutes } from '#/server/routes/admin.js';
 import { registerAuthRoutes } from '#/server/routes/auth.js';
 import { registerCollectionRoutes } from '#/server/routes/collections.js';
 import { registerEnvironmentRoutes } from '#/server/routes/environments.js';
+import { registerSnippetRoutes } from '#/server/routes/snippets.js';
 import { registerFolderRoutes } from '#/server/routes/folders.js';
 import { registerHealthRoute } from '#/server/routes/health.js';
 import { registerRequestRoutes } from '#/server/routes/requests.js';
@@ -84,6 +85,7 @@ export async function registerProtectedRoutes(
   });
   await registerCollectionRoutes(app, options.db);
   await registerEnvironmentRoutes(app, options.db);
+  await registerSnippetRoutes(app, options.db);
   await registerFolderRoutes(app, options.db);
   await registerRequestRoutes(app, options.db);
   await registerLlmRoutes(app, { db: options.db, getLlm: options.getLlm });

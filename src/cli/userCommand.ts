@@ -62,6 +62,11 @@ export interface UserCreateCommandOptions extends UserCommandOptions {
   environmentAccess: string[];
 
   /**
+   * Snippet ids or `*` granting snippet access.
+   */
+  snippetAccess: string[];
+
+  /**
    * Whether the user may use hub-proxied LLM routes.
    */
   llmAccess?: boolean;
@@ -102,6 +107,11 @@ export interface UserUpdateCommandOptions extends UserCommandOptions {
    * Replacement environment access list.
    */
   environmentAccess?: string[];
+
+  /**
+   * Replacement snippet access list.
+   */
+  snippetAccess?: string[];
 
   /**
    * Whether the user may use hub-proxied LLM routes.
@@ -274,6 +284,7 @@ function printUser(
     role: UserRole;
     collectionAccess: string[];
     environmentAccess: string[];
+    snippetAccess: string[];
     llmAccess: boolean;
     llmModels: string[];
     llmMonthlyTokenLimit: number | null;
@@ -287,6 +298,7 @@ function printUser(
   console.log(`  role: ${user.role}`);
   console.log(`  collection access: ${formatAccessList(user.collectionAccess)}`);
   console.log(`  environment access: ${formatAccessList(user.environmentAccess)}`);
+  console.log(`  snippet access: ${formatAccessList(user.snippetAccess)}`);
   console.log(`  llm access: ${user.llmAccess ? 'enabled' : 'disabled'}`);
   console.log(`  llm models: ${formatAccessList(user.llmModels)}`);
   console.log(
@@ -326,14 +338,16 @@ function printCreatedApiToken(
  * @returns Known collection, environment, and LLM model ids.
  */
 async function loadAccessCatalogs(db: IDatabase, llm: LlmConfig | null) {
-  const [collections, environments] = await Promise.all([
+  const [collections, environments, snippets] = await Promise.all([
     db.listCollections(),
-    db.listEnvironments()
+    db.listEnvironments(),
+    db.listSnippets()
   ]);
 
   return buildAccessCatalogIds(
     collections,
     environments,
+    snippets,
     llm ? listHubOfferedModels(llm).map((model) => model.id) : null
   );
 }
@@ -391,7 +405,12 @@ export async function userCreateCommand(options: UserCreateCommandOptions): Prom
   const config = loadServerConfig(options.config);
   const db = createDatabase(config.db);
   const access = mapValidationError(() =>
-    normalizeAccessForRole(options.role, options.collectionAccess, options.environmentAccess)
+    normalizeAccessForRole(
+      options.role,
+      options.collectionAccess,
+      options.environmentAccess,
+      options.snippetAccess
+    )
   );
 
   await db.connect();
@@ -406,6 +425,7 @@ export async function userCreateCommand(options: UserCreateCommandOptions): Prom
       role: options.role,
       collectionAccess: access.collectionAccess,
       environmentAccess: access.environmentAccess,
+      snippetAccess: access.snippetAccess,
       llmModels
     },
     catalogs
@@ -417,6 +437,7 @@ export async function userCreateCommand(options: UserCreateCommandOptions): Prom
       role: options.role,
       collectionAccess: access.collectionAccess ?? [],
       environmentAccess: access.environmentAccess ?? [],
+      snippetAccess: access.snippetAccess ?? [],
       llmAccess: llm.llmAccess,
       llmModels: llm.llmModels,
       llmMonthlyTokenLimit: options.llmMonthlyTokens ?? null
@@ -464,6 +485,7 @@ export async function userListCommand(options: UserCommandOptions): Promise<void
         {
           collectionAccess: user.collectionAccess,
           environmentAccess: user.environmentAccess,
+          snippetAccess: user.snippetAccess,
           llmModels: user.llmModels
         },
         catalogs
@@ -503,6 +525,7 @@ export async function userShowCommand(options: UserUpdateCommandOptions): Promis
       {
         collectionAccess: user.collectionAccess,
         environmentAccess: user.environmentAccess,
+        snippetAccess: user.snippetAccess,
         llmModels: user.llmModels
       },
       catalogs
@@ -534,8 +557,10 @@ export async function userUpdateCommand(options: UserUpdateCommandOptions): Prom
     options.collectionAccess ?? (options.role === 'admin' ? [] : existing.collectionAccess);
   const environmentAccess =
     options.environmentAccess ?? (options.role === 'admin' ? [] : existing.environmentAccess);
+  const snippetAccess =
+    options.snippetAccess ?? (options.role === 'admin' ? [] : existing.snippetAccess);
   const access = mapValidationError(() =>
-    normalizeAccessForRole(role, collectionAccess, environmentAccess)
+    normalizeAccessForRole(role, collectionAccess, environmentAccess, snippetAccess)
   );
   const llmAccess = role === 'admin' ? false : (options.llmAccess ?? existing.llmAccess);
   const llmModels = role === 'admin' ? [] : (options.llmModels ?? existing.llmModels);
@@ -546,6 +571,7 @@ export async function userUpdateCommand(options: UserUpdateCommandOptions): Prom
       role,
       collectionAccess: options.collectionAccess,
       environmentAccess: options.environmentAccess,
+      snippetAccess: options.snippetAccess,
       llmModels: options.llmModels
     },
     catalogs
@@ -556,6 +582,7 @@ export async function userUpdateCommand(options: UserUpdateCommandOptions): Prom
     role: options.role,
     collectionAccess: access.collectionAccess,
     environmentAccess: access.environmentAccess,
+    snippetAccess: access.snippetAccess,
     llmAccess: llm.llmAccess,
     llmModels: llm.llmModels,
     llmMonthlyTokenLimit:
@@ -711,6 +738,12 @@ export function registerUserCommand(
       parseAccessFlag,
       [] as string[]
     )
+    .option(
+      '--snippet-access <id>',
+      'Snippet id or * (repeatable)',
+      parseAccessFlag,
+      [] as string[]
+    )
     .option('--llm-access', 'Enable hub-proxied LLM access for the user')
     .option('--llm-model <id>', 'LLM model id or * (repeatable)', parseAccessFlag, [] as string[])
     .option('--llm-monthly-tokens <count>', 'Monthly LLM token limit', parseMonthlyTokenLimit)
@@ -766,6 +799,12 @@ export function registerUserCommand(
       parseAccessFlag,
       [] as string[]
     )
+    .option(
+      '--snippet-access <id>',
+      'Replacement snippet id or * (repeatable)',
+      parseAccessFlag,
+      [] as string[]
+    )
     .option('--llm-access', 'Enable hub-proxied LLM access for the user')
     .option('--no-llm-access', 'Disable hub-proxied LLM access for the user')
     .option(
@@ -791,6 +830,8 @@ export function registerUserCommand(
             (options.collectionAccess ?? []).length > 0 ? options.collectionAccess : undefined,
           environmentAccess:
             (options.environmentAccess ?? []).length > 0 ? options.environmentAccess : undefined,
+          snippetAccess:
+            (options.snippetAccess ?? []).length > 0 ? options.snippetAccess : undefined,
           llmModels: (() => {
             const llmModels = readLlmModelsOption(options);
             return llmModels.length > 0 ? llmModels : undefined;
