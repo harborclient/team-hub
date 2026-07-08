@@ -49,6 +49,11 @@ export const LLM_USAGE_COLLECTION = 'llmUsage';
 export const LLM_USAGE_LOG_COLLECTION = 'llmUsageLog';
 
 /**
+ * Firestore collection name for run result documents.
+ */
+export const RUN_RESULTS_COLLECTION = 'runResults';
+
+/**
  * Maximum writes per Firestore batch commit.
  */
 export const WRITE_BATCH_LIMIT = 500;

@@ -13,13 +13,16 @@ import {
   mapEnvironmentSqlRow,
   mapFolderSqlRow,
   mapRequestSqlRow,
+  mapRunResultSqlRow,
   mapSnippetSqlRow,
   type CollectionSqlRow,
   type EnvironmentSqlRow,
   type FolderSqlRow,
   type RequestSqlRow,
+  type RunResultSqlRow,
   type SnippetSqlRow
 } from '#/db/entityRows.js';
+import { buildDefaultRunResultLabel, parseRunResultPayload } from '#/db/runResultPayload.js';
 import type { IDatabase } from '#/db/IDatabase.js';
 import { MYSQL_DEFAULT_AUTH_JSON, MYSQL_MIGRATIONS } from '#/db/mysql/migrations.js';
 import { mysqlConfigSchema } from '#/db/mysql/schemas.js';
@@ -59,12 +62,14 @@ import type {
   CollectionRecord,
   CreateUserInput,
   CreateLlmUsageLogInput,
+  CreateRunResultInput,
   EnvironmentRecord,
   FolderRecord,
   KeyValue,
   ListAuditLogOptions,
   LlmUsageLogRecord,
   LlmUsageRecord,
+  RunResultRecord,
   SaveRequestInput,
   SavedRequestRecord,
   SnippetRecord,
@@ -78,6 +83,9 @@ import { formatZodError } from '#/db/validation.js';
 const COLLECTION_SELECT = `SELECT ${COLLECTION_SELECT_COLUMNS} FROM collections`;
 const ENVIRONMENT_SELECT = `SELECT ${ENVIRONMENT_SELECT_COLUMNS} FROM environments`;
 const SNIPPET_SELECT = `SELECT ${SNIPPET_SELECT_COLUMNS} FROM snippets`;
+const RUN_RESULT_SELECT_COLUMNS =
+  'id, kind, label, collection_name, request_name, summary_passed, summary_failed, summary_skipped, payload, created_at, created_by_user_id';
+const RUN_RESULT_SELECT = `SELECT ${RUN_RESULT_SELECT_COLUMNS} FROM run_results`;
 const USER_SELECT = `SELECT ${USER_SELECT_COLUMNS} FROM users`;
 const API_TOKEN_SELECT = `SELECT ${API_TOKEN_SELECT_COLUMNS} FROM api_tokens`;
 const FOLDER_SELECT = `SELECT ${FOLDER_SELECT_COLUMNS} FROM folders`;
@@ -1731,6 +1739,105 @@ export class MysqlDatabase implements IDatabase {
     );
 
     return rows.map(mapLlmUsageLogSqlRow);
+  }
+
+  /**
+   * Lists run results saved by the given user, newest first.
+   */
+  async listRunResultsForUser(userId: string): Promise<RunResultRecord[]> {
+    const rows = await this.queryRows<RunResultSqlRow & RowDataPacket>(
+      `${RUN_RESULT_SELECT} WHERE created_by_user_id = ? ORDER BY created_at DESC`,
+      [userId]
+    );
+    return rows.map(mapRunResultSqlRow);
+  }
+
+  /**
+   * Lists all run results for admin inspection, newest first.
+   */
+  async listAllRunResults(): Promise<RunResultRecord[]> {
+    const rows = await this.queryRows<RunResultSqlRow & RowDataPacket>(
+      `${RUN_RESULT_SELECT} ORDER BY created_at DESC`
+    );
+    return rows.map(mapRunResultSqlRow);
+  }
+
+  /**
+   * Creates a standalone run result snapshot.
+   */
+  async createRunResult(
+    input: CreateRunResultInput,
+    actingUserId: string
+  ): Promise<RunResultRecord> {
+    const metadata = parseRunResultPayload(input.payload);
+    const label = input.label?.trim() || buildDefaultRunResultLabel(metadata);
+    const id = randomUUID();
+    const now = new Date();
+
+    await this.executeStatement(
+      `INSERT INTO run_results (
+        id,
+        kind,
+        label,
+        collection_name,
+        request_name,
+        summary_passed,
+        summary_failed,
+        summary_skipped,
+        payload,
+        created_at,
+        created_by_user_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        metadata.kind,
+        label,
+        metadata.collectionName,
+        metadata.requestName,
+        metadata.summary.passed,
+        metadata.summary.failed,
+        metadata.summary.skipped,
+        JSON.stringify(input.payload),
+        now,
+        actingUserId
+      ]
+    );
+
+    const rows = await this.queryRows<RunResultSqlRow & RowDataPacket>(
+      `${RUN_RESULT_SELECT} WHERE id = ?`,
+      [id]
+    );
+    const row = rows[0];
+    if (!row) {
+      throw new Error('Run result not found after insert');
+    }
+
+    await this.recordAuditEntry(actingUserId, 'create', 'run_result', id);
+    return mapRunResultSqlRow(row);
+  }
+
+  /**
+   * Finds a run result by id.
+   */
+  async findRunResultById(id: string): Promise<RunResultRecord | null> {
+    const rows = await this.queryRows<RunResultSqlRow & RowDataPacket>(
+      `${RUN_RESULT_SELECT} WHERE id = ?`,
+      [id]
+    );
+    const row = rows[0];
+    return row ? mapRunResultSqlRow(row) : null;
+  }
+
+  /**
+   * Deletes a run result by id.
+   */
+  async deleteRunResult(id: string, actingUserId: string): Promise<void> {
+    const result = await this.executeStatement('DELETE FROM run_results WHERE id = ?', [id]);
+    if ((result as ResultSetHeader).affectedRows === 0) {
+      throw new Error('Run result not found');
+    }
+
+    await this.recordAuditEntry(actingUserId, 'delete', 'run_result', id);
   }
 
   /**

@@ -81,7 +81,8 @@ function parseAuditEntityType(value: string): AuditEntityType {
     value === 'environment' ||
     value === 'snippet' ||
     value === 'folder' ||
-    value === 'request'
+    value === 'request' ||
+    value === 'run_result'
   ) {
     return value;
   }

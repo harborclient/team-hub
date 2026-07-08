@@ -5,6 +5,7 @@ import { timestampSchema } from '#/server/routes/schemas/common.js';
 import { listLlmModelsResponseSchema } from '#/server/routes/schemas/llm.js';
 import {
   createSnippetBodySchema,
+  runResultRecordSchema,
   snippetRecordSchema,
   snippetScopeSchema
 } from '#/server/routes/schemas/entities.js';
@@ -96,6 +97,13 @@ export const listAdminEnvironmentsResponseSchema = z.object({
  */
 export const listAdminSnippetsResponseSchema = z.object({
   snippets: z.array(snippetRecordSchema)
+});
+
+/**
+ * Response body schema for admin run result listing.
+ */
+export const listAdminRunResultsResponseSchema = z.object({
+  runResults: z.array(runResultRecordSchema)
 });
 
 /**

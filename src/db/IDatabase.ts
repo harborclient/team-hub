@@ -2,6 +2,7 @@ import type {
   AuditLogRecord,
   AuthConfig,
   CollectionRecord,
+  CreateRunResultInput,
   CreateUserInput,
   EnvironmentRecord,
   FolderRecord,
@@ -16,7 +17,8 @@ import type {
   Variable,
   LlmUsageRecord,
   CreateLlmUsageLogInput,
-  LlmUsageLogRecord
+  LlmUsageLogRecord,
+  RunResultRecord
 } from '#/db/types.js';
 import type { ApiTokenRecord } from '#/db/types.js';
 
@@ -528,4 +530,39 @@ export interface IDatabase {
    * Lists all per-request LLM usage log entries, newest first.
    */
   listLlmUsageLogs(): Promise<LlmUsageLogRecord[]>;
+
+  /**
+   * Lists run results saved by the given user, newest first.
+   *
+   * @param userId - User account id whose snapshots should be returned.
+   */
+  listRunResultsForUser(userId: string): Promise<RunResultRecord[]>;
+
+  /**
+   * Lists all run results for admin inspection, newest first.
+   */
+  listAllRunResults(): Promise<RunResultRecord[]>;
+
+  /**
+   * Creates a standalone run result snapshot.
+   *
+   * @param input - Label and HarborClient export payload.
+   * @param actingUserId - User performing the save action.
+   */
+  createRunResult(input: CreateRunResultInput, actingUserId: string): Promise<RunResultRecord>;
+
+  /**
+   * Finds a run result by id.
+   *
+   * @param id - Run result UUID.
+   */
+  findRunResultById(id: string): Promise<RunResultRecord | null>;
+
+  /**
+   * Deletes a run result by id.
+   *
+   * @param id - Run result UUID.
+   * @param actingUserId - User performing the delete action.
+   */
+  deleteRunResult(id: string, actingUserId: string): Promise<void>;
 }

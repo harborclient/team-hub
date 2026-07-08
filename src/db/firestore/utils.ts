@@ -8,6 +8,7 @@ import type {
   SnippetRecord,
   LlmUsageRecord,
   LlmUsageLogRecord,
+  RunResultRecord,
   SavedRequestRecord,
   UserRecord
 } from '#/db/types.js';
@@ -21,6 +22,7 @@ import type {
   FirestoreLlmUsageDocument,
   FirestoreLlmUsageLogDocument,
   FirestoreRequestDocument,
+  FirestoreRunResultDocument,
   FirestoreUserDocument
 } from '#/db/firestore/types.js';
 
@@ -39,7 +41,8 @@ function parseAuditEntityType(value: string): AuditEntityType {
     value === 'environment' ||
     value === 'snippet' ||
     value === 'folder' ||
-    value === 'request'
+    value === 'request' ||
+    value === 'run_result'
   ) {
     return value;
   }
@@ -268,6 +271,30 @@ export function mapFirestoreRequest(
     updatedAt: data.updatedAt,
     createdByUserId: data.createdByUserId ?? null,
     updatedByUserId: data.updatedByUserId ?? null
+  };
+}
+
+/**
+ * Maps a Firestore document to the shared {@link RunResultRecord} shape.
+ *
+ * @param id - Document identifier.
+ * @param data - Stored run result fields.
+ * @returns Normalized run result record for application code.
+ */
+export function mapFirestoreRunResult(
+  id: string,
+  data: FirestoreRunResultDocument
+): RunResultRecord {
+  return {
+    id,
+    kind: data.kind,
+    label: data.label,
+    collectionName: data.collectionName,
+    requestName: data.requestName,
+    summary: data.summary,
+    payload: data.payload,
+    createdAt: data.createdAt,
+    createdByUserId: data.createdByUserId ?? null
   };
 }
 

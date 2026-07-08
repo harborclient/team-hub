@@ -323,6 +323,26 @@ WHERE role = 'user'
 `.trim();
 
 /**
+ * DDL for creating the run_results table when absent.
+ */
+export const RUN_RESULTS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS run_results (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('collection-run-results', 'request-run-results')),
+  label TEXT NOT NULL,
+  collection_name TEXT,
+  request_name TEXT,
+  summary_passed INT NOT NULL DEFAULT 0,
+  summary_failed INT NOT NULL DEFAULT 0,
+  summary_skipped INT NOT NULL DEFAULT 0,
+  payload TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS run_results_created_idx ON run_results (created_at DESC);
+`.trim();
+
+/**
  * Ordered Postgres migrations applied by {@link PostgresDatabase.migrate}.
  */
 export const POSTGRES_MIGRATIONS = [
@@ -350,5 +370,6 @@ export const POSTGRES_MIGRATIONS = [
   COLLECTIONS_DELETION_LOCKED_MIGRATION_SQL,
   ENVIRONMENTS_DELETION_LOCKED_MIGRATION_SQL,
   USERS_SNIPPET_ACCESS_MIGRATION_SQL,
-  USERS_SNIPPET_ACCESS_BACKFILL_SQL
+  USERS_SNIPPET_ACCESS_BACKFILL_SQL,
+  RUN_RESULTS_MIGRATION_SQL
 ];

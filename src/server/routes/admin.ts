@@ -28,6 +28,7 @@ import {
   listAdminEnvironmentsResponseSchema,
   listAdminLlmModelsResponseSchema,
   listAdminSnippetsResponseSchema,
+  listAdminRunResultsResponseSchema,
   listAdminTokensResponseSchema,
   listAdminUsersResponseSchema,
   reloadConfigResponseSchema,
@@ -48,6 +49,7 @@ import {
   listFoldersResponseSchema,
   listRequestsResponseSchema,
   serializeFolder,
+  serializeRunResult,
   serializeSavedRequest,
   serializeSnippet
 } from '#/server/routes/schemas/entities.js';
@@ -625,6 +627,78 @@ export async function registerAdminRoutes(
         }
 
         await db.deleteSnippet(request.params.id, user.id);
+        return reply.code(204).send(null);
+      } catch (error) {
+        if (handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'GET',
+    url: '/admin/run-results',
+    schema: {
+      response: {
+        200: listAdminRunResultsResponseSchema,
+        403: errorResponseSchema
+      }
+    },
+    /**
+     * Lists all run results for operator management.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(user))) {
+          return;
+        }
+
+        const runResults = await db.listAllRunResults();
+        return reply.send({
+          runResults: runResults.map((record) => serializeRunResult(record))
+        });
+      } catch (error) {
+        if (handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'DELETE',
+    url: '/admin/run-results/:id',
+    schema: {
+      params: idParamSchema,
+      response: {
+        204: emptyResponseSchema,
+        403: errorResponseSchema,
+        404: errorResponseSchema
+      }
+    },
+    /**
+     * Deletes a run result regardless of creator ownership.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(user))) {
+          return;
+        }
+
+        const record = await db.findRunResultById(request.params.id);
+        if (!record) {
+          void reply.code(404).send({ error: 'Run result not found' });
+          return;
+        }
+
+        await db.deleteRunResult(request.params.id, user.id);
         return reply.code(204).send(null);
       } catch (error) {
         if (handleDbError(reply, error)) {

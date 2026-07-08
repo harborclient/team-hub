@@ -18,7 +18,8 @@ export type AuditEntityType =
   | 'environment'
   | 'snippet'
   | 'folder'
-  | 'request';
+  | 'request'
+  | 'run_result';
 
 /**
  * Persisted audit log entry describing a single mutating action.
@@ -736,6 +737,96 @@ export interface SnippetRecord {
    * When true, non-admin users cannot delete this snippet.
    */
   deletionLocked: boolean;
+}
+
+/**
+ * Discriminator for collection-wide or single-request run result snapshots.
+ */
+export type RunResultKind = 'collection-run-results' | 'request-run-results';
+
+/**
+ * Pass/fail/skip counts stored with a run result snapshot.
+ */
+export interface RunResultSummaryCounts {
+  /**
+   * Number of requests that passed.
+   */
+  passed: number;
+
+  /**
+   * Number of requests that failed.
+   */
+  failed: number;
+
+  /**
+   * Number of requests that were skipped.
+   */
+  skipped: number;
+}
+
+/**
+ * Persisted collection runner result snapshot.
+ */
+export interface RunResultRecord {
+  /**
+   * Stable run result identifier.
+   */
+  id: string;
+
+  /**
+   * Whether the snapshot is a collection-wide or single-request run.
+   */
+  kind: RunResultKind;
+
+  /**
+   * User-facing label for list rows.
+   */
+  label: string;
+
+  /**
+   * Collection display name captured at save time.
+   */
+  collectionName: string | null;
+
+  /**
+   * Request display name when the run targeted one request.
+   */
+  requestName: string | null;
+
+  /**
+   * Pass/fail/skip counts derived from the saved result rows.
+   */
+  summary: RunResultSummaryCounts;
+
+  /**
+   * Complete HarborClient export payload stored as JSON.
+   */
+  payload: Record<string, unknown>;
+
+  /**
+   * When the run result was saved.
+   */
+  createdAt: Date;
+
+  /**
+   * User who saved the run result.
+   */
+  createdByUserId: string | null;
+}
+
+/**
+ * Input for creating a run result snapshot.
+ */
+export interface CreateRunResultInput {
+  /**
+   * Optional display label; generated from payload metadata when omitted.
+   */
+  label?: string;
+
+  /**
+   * HarborClient run-results export payload to persist.
+   */
+  payload: Record<string, unknown>;
 }
 
 /**

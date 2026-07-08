@@ -4,6 +4,8 @@ import type {
   CollectionRecord,
   EnvironmentRecord,
   FolderRecord,
+  RunResultKind,
+  RunResultRecord,
   SnippetRecord,
   SnippetScope,
   HttpMethod,
@@ -433,6 +435,47 @@ export function mapSnippetSqlRow(row: SnippetSqlRow): SnippetRecord {
     createdByUserId: row.created_by_user_id ?? null,
     updatedByUserId: row.updated_by_user_id ?? null,
     deletionLocked: Boolean(row.deletion_locked)
+  };
+}
+
+/**
+ * SQL row shape for persisted run results.
+ */
+export interface RunResultSqlRow {
+  id: string;
+  kind: RunResultKind;
+  label: string;
+  collection_name: string | null;
+  request_name: string | null;
+  summary_passed: number;
+  summary_failed: number;
+  summary_skipped: number;
+  payload: string;
+  created_at: Date;
+  created_by_user_id: string | null;
+}
+
+/**
+ * Maps a snake_case SQL row to the shared {@link RunResultRecord} shape.
+ *
+ * @param row - Database row from run_results.
+ * @returns Normalized run result record for application code.
+ */
+export function mapRunResultSqlRow(row: RunResultSqlRow): RunResultRecord {
+  return {
+    id: row.id,
+    kind: row.kind,
+    label: row.label,
+    collectionName: row.collection_name,
+    requestName: row.request_name,
+    summary: {
+      passed: row.summary_passed,
+      failed: row.summary_failed,
+      skipped: row.summary_skipped
+    },
+    payload: parseJson<Record<string, unknown>>(row.payload, {}),
+    createdAt: row.created_at,
+    createdByUserId: row.created_by_user_id ?? null
   };
 }
 

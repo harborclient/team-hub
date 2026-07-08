@@ -1,6 +1,7 @@
 import type {
   CollectionRecord,
   EnvironmentRecord,
+  RunResultRecord,
   SavedRequestRecord,
   SnippetRecord,
   UserRecord
@@ -70,6 +71,19 @@ export function canListEnvironments(user: UserRecord): boolean {
  * @returns True for `user`- and `admin`-role accounts.
  */
 export function canListSnippets(user: UserRecord): boolean {
+  return canUseDataApi(user) || canUseManagementApi(user);
+}
+
+/**
+ * Returns true when the user may list their own run results via `GET /run-results`.
+ *
+ * Admins receive an empty list (they created none) rather than a 403, matching the
+ * collections/environments/snippets listing endpoints.
+ *
+ * @param user - Authenticated user attached to the request.
+ * @returns True for `user`- and `admin`-role accounts.
+ */
+export function canListRunResults(user: UserRecord): boolean {
   return canUseDataApi(user) || canUseManagementApi(user);
 }
 
@@ -193,6 +207,17 @@ export function canDeleteRequest(user: UserRecord, request: SavedRequestRecord):
     canAccessCollection(user, request.collectionId) &&
     request.createdByUserId === user.id
   );
+}
+
+/**
+ * Returns true when the user may delete a specific run result via the data API.
+ *
+ * @param user - Authenticated user attached to the request.
+ * @param runResult - Run result record being deleted.
+ * @returns True when the user created the run result.
+ */
+export function canDeleteRunResult(user: UserRecord, runResult: RunResultRecord): boolean {
+  return canUseDataApi(user) && runResult.createdByUserId === user.id;
 }
 
 /**

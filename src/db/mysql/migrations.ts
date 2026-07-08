@@ -349,6 +349,26 @@ WHERE role = 'user'
 `.trim();
 
 /**
+ * DDL for creating the run_results table when absent.
+ */
+export const RUN_RESULTS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS run_results (
+  id VARCHAR(36) PRIMARY KEY,
+  kind VARCHAR(64) NOT NULL,
+  label VARCHAR(512) NOT NULL,
+  collection_name VARCHAR(512),
+  request_name VARCHAR(512),
+  summary_passed INT NOT NULL DEFAULT 0,
+  summary_failed INT NOT NULL DEFAULT 0,
+  summary_skipped INT NOT NULL DEFAULT 0,
+  payload LONGTEXT NOT NULL,
+  created_at DATETIME NOT NULL,
+  created_by_user_id VARCHAR(36),
+  INDEX run_results_created_idx (created_at)
+)
+`.trim();
+
+/**
  * Ordered MySQL migrations applied by {@link MysqlDatabase.migrate}.
  */
 export const MYSQL_MIGRATIONS = [
@@ -376,5 +396,6 @@ export const MYSQL_MIGRATIONS = [
   COLLECTIONS_DELETION_LOCKED_MIGRATION_SQL,
   ENVIRONMENTS_DELETION_LOCKED_MIGRATION_SQL,
   USERS_SNIPPET_ACCESS_MIGRATION_SQL,
-  USERS_SNIPPET_ACCESS_BACKFILL_SQL
+  USERS_SNIPPET_ACCESS_BACKFILL_SQL,
+  RUN_RESULTS_MIGRATION_SQL
 ];

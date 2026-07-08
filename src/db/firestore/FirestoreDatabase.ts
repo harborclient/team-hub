@@ -11,6 +11,7 @@ import {
   LLM_USAGE_COLLECTION,
   LLM_USAGE_LOG_COLLECTION,
   REQUESTS_COLLECTION,
+  RUN_RESULTS_COLLECTION,
   SNIPPETS_COLLECTION,
   USERS_COLLECTION,
   WRITE_BATCH_LIMIT
@@ -27,6 +28,7 @@ import type {
   FirestoreLlmUsageDocument,
   FirestoreLlmUsageLogDocument,
   FirestoreRequestDocument,
+  FirestoreRunResultDocument,
   FirestoreSnippetDocument,
   FirestoreUserDocument
 } from '#/db/firestore/types.js';
@@ -39,10 +41,12 @@ import {
   mapFirestoreLlmUsage,
   mapFirestoreLlmUsageLog,
   mapFirestoreRequest,
+  mapFirestoreRunResult,
   mapFirestoreSnippet,
   mapFirestoreUser
 } from '#/db/firestore/utils.js';
 import type { IDatabase } from '#/db/IDatabase.js';
+import { buildDefaultRunResultLabel, parseRunResultPayload } from '#/db/runResultPayload.js';
 import { trimRequiredName } from '#/db/trimRequiredName.js';
 import { assertUserNameAvailable, assertUserNameNotReserved } from '#/db/userNameValidation.js';
 import type {
@@ -52,6 +56,7 @@ import type {
   AuditLogRecord,
   AuthConfig,
   CollectionRecord,
+  CreateRunResultInput,
   CreateUserInput,
   CreateLlmUsageLogInput,
   EnvironmentRecord,
@@ -61,6 +66,7 @@ import type {
   LlmUsageLogRecord,
   LlmUsageRecord,
   SaveRequestInput,
+  RunResultRecord,
   SavedRequestRecord,
   SnippetRecord,
   SnippetScope,
@@ -1544,6 +1550,98 @@ export class FirestoreDatabase implements IDatabase {
     }
 
     return usage;
+  }
+
+  /**
+   * Lists run results saved by the given user, newest first.
+   *
+   * @param userId - Owning user identifier.
+   */
+  async listRunResultsForUser(userId: string): Promise<RunResultRecord[]> {
+    const snapshot = await this.requireClient()
+      .collection(RUN_RESULTS_COLLECTION)
+      .where('createdByUserId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    return snapshot.docs.map((doc) =>
+      mapFirestoreRunResult(doc.id, doc.data() as FirestoreRunResultDocument)
+    );
+  }
+
+  /**
+   * Lists all run results for admin inspection, newest first.
+   */
+  async listAllRunResults(): Promise<RunResultRecord[]> {
+    const snapshot = await this.requireClient()
+      .collection(RUN_RESULTS_COLLECTION)
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    return snapshot.docs.map((doc) =>
+      mapFirestoreRunResult(doc.id, doc.data() as FirestoreRunResultDocument)
+    );
+  }
+
+  /**
+   * Creates a standalone run result snapshot.
+   *
+   * @param input - HarborClient export payload and optional label.
+   * @param actingUserId - User performing the create action.
+   */
+  async createRunResult(
+    input: CreateRunResultInput,
+    actingUserId: string
+  ): Promise<RunResultRecord> {
+    const metadata = parseRunResultPayload(input.payload);
+    const label = input.label?.trim() || buildDefaultRunResultLabel(metadata);
+    const id = randomUUID();
+    const now = new Date();
+    const data: FirestoreRunResultDocument = {
+      kind: metadata.kind,
+      label,
+      collectionName: metadata.collectionName,
+      requestName: metadata.requestName,
+      summary: metadata.summary,
+      payload: input.payload,
+      createdAt: now,
+      createdByUserId: actingUserId
+    };
+
+    await this.requireClient().collection(RUN_RESULTS_COLLECTION).doc(id).set(data);
+    await this.recordAuditEntry(actingUserId, 'create', 'run_result', id);
+    return mapFirestoreRunResult(id, data);
+  }
+
+  /**
+   * Finds a run result by stable identifier.
+   *
+   * @param id - Run result ID to look up.
+   */
+  async findRunResultById(id: string): Promise<RunResultRecord | null> {
+    const snapshot = await this.requireClient().collection(RUN_RESULTS_COLLECTION).doc(id).get();
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    return mapFirestoreRunResult(id, snapshot.data() as FirestoreRunResultDocument);
+  }
+
+  /**
+   * Deletes a run result.
+   *
+   * @param id - Run result ID to delete.
+   * @param actingUserId - User performing the delete action.
+   */
+  async deleteRunResult(id: string, actingUserId: string): Promise<void> {
+    const docRef = this.requireClient().collection(RUN_RESULTS_COLLECTION).doc(id);
+    const snapshot = await docRef.get();
+    if (!snapshot.exists) {
+      throw new Error('Run result not found');
+    }
+
+    await this.recordAuditEntry(actingUserId, 'delete', 'run_result', id);
+    await docRef.delete();
   }
 
   /**

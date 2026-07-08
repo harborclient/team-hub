@@ -1,5 +1,12 @@
-import type { AuthConfig, KeyValue, UserRole, Variable } from '#/db/types.js';
-import type { AuditAction } from '#/db/types.js';
+import type {
+  AuditAction,
+  AuthConfig,
+  KeyValue,
+  RunResultKind,
+  RunResultSummaryCounts,
+  UserRole,
+  Variable
+} from '#/db/types.js';
 
 /**
  * Validated configuration for a Firestore database connection.
@@ -554,4 +561,49 @@ export interface FirestoreLlmUsageLogDocument {
    * When the completion step finished.
    */
   createdAt: Date;
+}
+
+/**
+ * Firestore document shape for persisted run result snapshots.
+ */
+export interface FirestoreRunResultDocument {
+  /**
+   * Whether the snapshot is a collection-wide or single-request run.
+   */
+  kind: RunResultKind;
+
+  /**
+   * User-facing label for list rows.
+   */
+  label: string;
+
+  /**
+   * Collection display name captured at save time.
+   */
+  collectionName: string | null;
+
+  /**
+   * Request display name when the run targeted one request.
+   */
+  requestName: string | null;
+
+  /**
+   * Pass/fail/skip counts derived from the saved result rows.
+   */
+  summary: RunResultSummaryCounts;
+
+  /**
+   * Complete HarborClient export payload stored as JSON.
+   */
+  payload: Record<string, unknown>;
+
+  /**
+   * When the run result was saved.
+   */
+  createdAt: Date;
+
+  /**
+   * User who saved the run result.
+   */
+  createdByUserId: string | null;
 }

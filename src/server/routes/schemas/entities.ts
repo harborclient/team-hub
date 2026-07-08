@@ -3,6 +3,7 @@ import type {
   CollectionRecord,
   EnvironmentRecord,
   FolderRecord,
+  RunResultRecord,
   SavedRequestRecord,
   SnippetRecord
 } from '#/db/types.js';
@@ -331,5 +332,77 @@ export function serializeSavedRequest(record: SavedRequestRecord) {
     ...record,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString()
+  };
+}
+
+/**
+ * JSON shape for a persisted run result list record.
+ */
+export const runResultRecordSchema = z.object({
+  id: z.string(),
+  kind: z.enum(['collection-run-results', 'request-run-results']),
+  label: z.string(),
+  collectionName: z.string().nullable(),
+  requestName: z.string().nullable(),
+  summary: z.object({
+    passed: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    skipped: z.number().int().nonnegative()
+  }),
+  createdAt: timestampSchema,
+  createdByUserId: z.string().nullable()
+});
+
+/**
+ * JSON shape for a run result detail response including payload.
+ */
+export const runResultDetailSchema = runResultRecordSchema.extend({
+  payload: z.record(z.string(), z.unknown())
+});
+
+/**
+ * Request body schema for `POST /run-results`.
+ */
+export const createRunResultBodySchema = z.object({
+  label: z.string().trim().min(1).optional(),
+  payload: z.record(z.string(), z.unknown())
+});
+
+/**
+ * List response wrapper for run results.
+ */
+export const listRunResultsResponseSchema = z.object({
+  runResults: z.array(runResultRecordSchema)
+});
+
+/**
+ * Serializes a run result record for JSON list responses.
+ *
+ * @param record - Run result record from the database layer.
+ * @returns Run result metadata without the stored payload body.
+ */
+export function serializeRunResult(record: RunResultRecord) {
+  return {
+    id: record.id,
+    kind: record.kind,
+    label: record.label,
+    collectionName: record.collectionName,
+    requestName: record.requestName,
+    summary: record.summary,
+    createdAt: record.createdAt.toISOString(),
+    createdByUserId: record.createdByUserId
+  };
+}
+
+/**
+ * Serializes a run result record for JSON detail responses.
+ *
+ * @param record - Run result record from the database layer.
+ * @returns Run result metadata plus the stored payload body.
+ */
+export function serializeRunResultDetail(record: RunResultRecord) {
+  return {
+    ...serializeRunResult(record),
+    payload: record.payload
   };
 }
