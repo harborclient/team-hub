@@ -3,6 +3,9 @@
 ## Unreleased
 
 - Add run result management functionality in API and database. (`4e35a76`)
+
+## 0.4.1 - 2026-07-07
+
 - Implement admin snippet management routes and schemas. (`cdbfbf6`)
 
 ## 0.4.0 - 2026-07-07
