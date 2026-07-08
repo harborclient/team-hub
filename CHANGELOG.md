@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.2 - 2026-07-08
+
 - Add run result management functionality in API and database. (`4e35a76`)
 
 ## 0.4.1 - 2026-07-07
