@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.3 - 2026-07-09
+
 - Enhance Dockerfile and configuration for documentation search. (`d2e4206`)
 
 ## 0.4.2 - 2026-07-08
