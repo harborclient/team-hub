@@ -12,7 +12,7 @@ import {
 } from '#/server/admin/userValidation.js';
 import { canUseManagementApi } from '#/server/auth/accessControl.js';
 import { generateApiToken } from '#/server/auth/apiTokens.js';
-import { listHubOfferedModels } from '#/server/llm/models.js';
+import { getHubLlmCapabilities, listHubOfferedModels } from '#/server/llm/models.js';
 import { handleDbError, handleValidationError } from '#/server/routes/errors.js';
 import { denyUnlessAllowed, requireAuthenticatedUser } from '#/server/routes/authorize.js';
 import {
@@ -915,7 +915,7 @@ export async function registerAdminRoutes(
         provider: model.provider
       }));
 
-      return reply.send({ models });
+      return reply.send({ models, capabilities: getHubLlmCapabilities(llm) });
     }
   });
 

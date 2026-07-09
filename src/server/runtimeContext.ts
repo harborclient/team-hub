@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
+import type { DocsConfig } from '#/config/docsConfig.js';
 import type { LlmConfig } from '#/config/llmConfig.js';
 import type { PluginsConfig } from '#/config/pluginsConfig.js';
 import { ConfigError, loadServerConfig, type ServerConfig } from '#/config/serverConfig.js';
@@ -15,7 +16,7 @@ export type ReloadSectionStatus = 'reloaded' | 'unchanged' | 'failed' | 'restart
 /**
  * Config section name reported in reload results.
  */
-export type ReloadSectionName = 'db' | 'redis' | 'llm' | 'plugins' | 'server';
+export type ReloadSectionName = 'db' | 'redis' | 'llm' | 'plugins' | 'docs' | 'server';
 
 /**
  * Per-section reload outcome.
@@ -92,6 +93,11 @@ export interface RuntimeContext {
   getPlugins(): PluginsConfig | null;
 
   /**
+   * Returns the current normalized documentation search configuration.
+   */
+  getDocs(): DocsConfig | null;
+
+  /**
    * Winston logger configured at process startup from server.yaml.
    */
   readonly logger: Logger;
@@ -117,6 +123,7 @@ interface RuntimeContextState {
   throttleHolder: SwappableHolder<IThrottleStore>;
   llm: LlmConfig | null;
   plugins: PluginsConfig | null;
+  docs: DocsConfig | null;
 }
 
 const runtimeContextStates = new WeakMap<RuntimeContext, RuntimeContextState>();
@@ -190,7 +197,8 @@ export function createRuntimeContext(config: ServerConfig, configPath: string): 
     dbHolder: { underlying: createDatabase(config.db) },
     throttleHolder: { underlying: createThrottleStore(config.redis) },
     llm: config.llm,
-    plugins: config.plugins
+    plugins: config.plugins,
+    docs: config.docs
   };
 
   const ctx: RuntimeContext = {
@@ -205,6 +213,7 @@ export function createRuntimeContext(config: ServerConfig, configPath: string): 
     throttleStore: createSwappableProxy(state.throttleHolder),
     getLlm: () => state.llm,
     getPlugins: () => state.plugins,
+    getDocs: () => state.docs,
     logger: createLogger(config.logging)
   };
 
@@ -341,6 +350,9 @@ export async function reloadRuntimeConfig(ctx: RuntimeContext): Promise<ReloadRe
 
   state.plugins = nextConfig.plugins;
   sections.push({ section: 'plugins', status: 'reloaded' });
+
+  state.docs = nextConfig.docs;
+  sections.push({ section: 'docs', status: 'reloaded' });
 
   sections.push(reloadServerSection(state, nextConfig));
 

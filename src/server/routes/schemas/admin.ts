@@ -219,7 +219,7 @@ export const listAdminTokensResponseSchema = z.object({
  * Per-section outcome reported by config reload routes.
  */
 export const reloadConfigSectionResultSchema = z.object({
-  section: z.enum(['db', 'redis', 'llm', 'plugins', 'server']),
+  section: z.enum(['db', 'redis', 'llm', 'plugins', 'docs', 'server']),
   status: z.enum(['reloaded', 'unchanged', 'failed', 'restart-required']),
   error: z.string().optional()
 });

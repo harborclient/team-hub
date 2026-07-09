@@ -93,6 +93,7 @@ export async function createServer(
     throttleStore,
     getLlm: ctx ? () => ctx.getLlm() : () => legacyConfig?.llm ?? null,
     getPlugins: ctx ? () => ctx.getPlugins() : () => legacyConfig?.plugins ?? null,
+    getDocs: ctx ? () => ctx.getDocs() : () => legacyConfig?.docs ?? null,
     reloadConfig: options.reloadConfig ?? (async () => ({ sections: [] }))
   });
 

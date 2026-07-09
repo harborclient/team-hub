@@ -58,10 +58,18 @@ export const llmModelSchema = z.object({
 });
 
 /**
+ * Zod schema for hub LLM capability flags returned by GET /llm/models.
+ */
+export const llmCapabilitiesSchema = z.object({
+  openai: z.boolean()
+});
+
+/**
  * Zod schema for GET /llm/models response body.
  */
 export const listLlmModelsResponseSchema = z.object({
-  models: z.array(llmModelSchema)
+  models: z.array(llmModelSchema),
+  capabilities: llmCapabilitiesSchema
 });
 
 /**

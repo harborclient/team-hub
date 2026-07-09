@@ -6,6 +6,7 @@ import {
   sampleUserRecord
 } from '#/server/routes/test/createTestApp.js';
 import * as agent from '#/server/llm/agent.js';
+import { currentUsagePeriod } from '#/server/llm/models.js';
 
 const sampleLlmConfig = {
   providers: {
@@ -69,17 +70,19 @@ describe('llm routes', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
-      models: [{ id: 'gpt-4o', label: 'GPT-4o', provider: 'openai' }]
+      models: [{ id: 'gpt-4o', label: 'GPT-4o', provider: 'openai' }],
+      capabilities: { openai: true }
     });
     await app.close();
   });
 
   it('returns 402 when a new turn exceeds the monthly token limit', async () => {
+    const period = currentUsagePeriod();
     const db = createStubDatabase();
     db.getLlmUsage.mockResolvedValue({
       id: 'usage-1',
       userId: 'user-1',
-      period: '2026-06',
+      period,
       promptTokens: 900,
       completionTokens: 100,
       totalTokens: 1000,
@@ -113,6 +116,7 @@ describe('llm routes', () => {
   });
 
   it('allows continuation steps after the monthly limit is reached', async () => {
+    const period = currentUsagePeriod();
     const runHubChatStep = vi.spyOn(agent, 'runHubChatStep').mockResolvedValue({
       content: 'Done',
       usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 }
@@ -122,7 +126,7 @@ describe('llm routes', () => {
     db.getLlmUsage.mockResolvedValue({
       id: 'usage-1',
       userId: 'user-1',
-      period: '2026-06',
+      period,
       promptTokens: 900,
       completionTokens: 100,
       totalTokens: 1000,
@@ -131,7 +135,7 @@ describe('llm routes', () => {
     db.addLlmUsage.mockResolvedValue({
       id: 'usage-1',
       userId: 'user-1',
-      period: '2026-06',
+      period,
       promptTokens: 901,
       completionTokens: 102,
       totalTokens: 1003,
@@ -141,7 +145,7 @@ describe('llm routes', () => {
       id: 'log-1',
       userId: 'user-1',
       apiTokenId: 'token-1',
-      period: '2026-06',
+      period,
       model: 'gpt-4o',
       provider: 'openai',
       promptTokens: 1,
@@ -196,6 +200,7 @@ describe('llm routes', () => {
   });
 
   it('logs per-request usage for successful new-turn completions', async () => {
+    const period = currentUsagePeriod();
     const runHubChatStep = vi.spyOn(agent, 'runHubChatStep').mockResolvedValue({
       content: null,
       toolCalls: [{ id: 'call-1', name: 'listCollections', arguments: '{}' }],
@@ -207,7 +212,7 @@ describe('llm routes', () => {
     db.addLlmUsage.mockResolvedValue({
       id: 'usage-1',
       userId: 'user-1',
-      period: '2026-06',
+      period,
       promptTokens: 10,
       completionTokens: 20,
       totalTokens: 30,
@@ -217,7 +222,7 @@ describe('llm routes', () => {
       id: 'log-1',
       userId: 'user-1',
       apiTokenId: 'token-1',
-      period: '2026-06',
+      period,
       model: 'gpt-4o',
       provider: 'openai',
       promptTokens: 10,

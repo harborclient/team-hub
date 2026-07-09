@@ -59,6 +59,21 @@ Use `team-hub user update <id> --no-llm-access` to revoke access.
 
 HarborClient keeps orchestrating client-side tools locally. Each LLM completion step is sent to `POST /llm/chat/step`. The hub forwards tool definitions and the system prompt to the provider. When `llm.mcp` is configured, the hub also merges hub MCP tools, executes those tool calls server-side in a bounded loop, and returns only passthrough (HarborClient) tool calls in the response.
 
+### Hub-native documentation search
+
+When HarborClient's AI assistant calls `search_docs`, the request normally runs in the desktop app using a **local** OpenAI API key and a bundled Orama index. Team Hub users typically have no local key — the hub holds provider credentials instead.
+
+Team Hub can execute `search_docs` **server-side** when both of the following are true:
+
+1. `llm.providers.openai.apiKey` is configured in `server.yaml`.
+2. A serialized documentation index (`docsSearchIndex.json`) is available on disk (see [Configuration — docs](./configuration.md#docs) and [Deploy — Documentation index](./deploy.md#documentation-index)).
+
+The hub embeds the query with `text-embedding-3-small` (1536 dimensions) using its OpenAI key, runs vector search over the index, and feeds results back into the agent loop without returning a passthrough tool call to HarborClient.
+
+When OpenAI or the index is missing, the hub **strips** `search_docs` from merged tool definitions so the model cannot call it. `GET /llm/models` advertises hub OpenAI availability via `capabilities.openai`; HarborClient shows an **OpenAI** service badge and disables docs search for hub chats when that flag is false.
+
+The index schema and embedding constants must stay in lockstep with harborclient's `scripts/index-docs.mjs` and `src/main/docs/docsSearch.ts`.
+
 ## Monthly limits
 
 Token usage is tracked per UTC calendar month. When a user exceeds their limit, new user messages are rejected with `402`. In-flight tool loops may finish because continuation steps (last message role `tool`) are still accepted.

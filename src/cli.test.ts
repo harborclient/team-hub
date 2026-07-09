@@ -299,6 +299,7 @@ ${sampleDbSection}${sampleRedisSection}`);
       redis: sampleRedisConfig,
       llm: null,
       plugins: null,
+      docs: null,
       logging: DEFAULT_LOGGING_CONFIG
     });
     expect(createServerMock).toHaveBeenCalledWith(

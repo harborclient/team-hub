@@ -32,6 +32,7 @@ describe('GET /health', () => {
         redis: { host: '127.0.0.1', port: 6380 },
         llm: null,
         plugins: null,
+        docs: null,
         logging: DEFAULT_LOGGING_CONFIG
       },
       { version: '0.1.0', db: createHealthStubDatabase(), throttleStore: createStubThrottleStore() }

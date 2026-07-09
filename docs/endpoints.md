@@ -1165,9 +1165,14 @@ Lists hub-offered models the authenticated user may use.
       "label": "GPT-4o",
       "provider": "openai"
     }
-  ]
+  ],
+  "capabilities": {
+    "openai": true
+  }
 }
 ```
+
+`capabilities.openai` is `true` when `llm.providers.openai.apiKey` is configured. HarborClient uses this flag for the **OpenAI** service badge and to enable hub-native documentation search (`search_docs`).
 
 **Response `403`:** User lacks LLM access or the route is forbidden.
 

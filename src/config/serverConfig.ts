@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import type { ZodError } from 'zod/v4';
+import { normalizeDocsConfig, type DocsConfig } from '#/config/docsConfig.js';
 import { normalizeLlmConfig, type LlmConfig } from '#/config/llmConfig.js';
 import {
   DEFAULT_LOGGING_CONFIG,
@@ -11,6 +12,7 @@ import {
 import { normalizePluginsConfig, type PluginsConfig } from '#/config/pluginsConfig.js';
 import {
   dbSectionSchema,
+  docsSectionSchema,
   llmSectionSchema,
   loggingSectionSchema,
   pluginsSectionSchema,
@@ -54,6 +56,11 @@ export interface ServerConfig {
    * Normalized plugin source URLs when the optional `plugins` section is present.
    */
   plugins: PluginsConfig | null;
+
+  /**
+   * Normalized documentation search settings when the optional `docs` section is present.
+   */
+  docs: DocsConfig | null;
 
   /**
    * Normalized logging settings (defaults apply when the section is omitted).
@@ -222,6 +229,15 @@ function parseServerConfig(document: unknown): ServerConfig {
     plugins = normalizePluginsConfig(parsedPluginsSection.data);
   }
 
+  let docs: DocsConfig | null = null;
+  if (root.docs !== undefined) {
+    const parsedDocsSection = docsSectionSchema.safeParse(root.docs);
+    if (!parsedDocsSection.success) {
+      throw new ConfigError(formatZodError(parsedDocsSection.error));
+    }
+    docs = normalizeDocsConfig(parsedDocsSection.data);
+  }
+
   let logging = DEFAULT_LOGGING_CONFIG;
   if (root.logging !== undefined) {
     const parsedLoggingSection = loggingSectionSchema.safeParse(root.logging);
@@ -238,6 +254,7 @@ function parseServerConfig(document: unknown): ServerConfig {
     redis: parsedRedisSection.data as Record<string, unknown>,
     llm,
     plugins,
+    docs,
     logging
   };
 }

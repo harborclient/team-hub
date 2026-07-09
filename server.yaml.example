@@ -2,9 +2,9 @@
 # Copy to server.yaml and adjust for your environment.
 #
 # Required sections: server, db, redis
-# Optional sections: logging, llm, plugins
+# Optional sections: logging, llm, plugins, docs
 #
-# While team-hub start is running, db/redis/llm/plugins reload live via SIGHUP or
+# While team-hub start is running, db/redis/llm/plugins/docs reload live via SIGHUP or
 # POST /admin/config/reload. Changes to server.host or server.port require a restart.
 
 # HTTP listen address for the Team Hub API.
@@ -112,3 +112,10 @@ redis:
 #     - https://example.com/custom-catalog.json
 #   trusted:
 #     - https://harborclient.com/plugins/trusted.json
+
+# Optional documentation vector search index for hub-native search_docs.
+# When omitted, Team Hub looks for /app/data/docsSearchIndex.json (Docker default)
+# and other fallback paths. Rebuild the index with `pnpm index-docs` in harborclient.
+#
+# docs:
+#   searchIndexPath: /app/data/docsSearchIndex.json

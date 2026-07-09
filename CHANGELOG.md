@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Enhance Dockerfile and configuration for documentation search. (`d2e4206`)
 - Add run result management functionality in API and database. (`4e35a76`)
 
 ## 0.4.1 - 2026-07-07

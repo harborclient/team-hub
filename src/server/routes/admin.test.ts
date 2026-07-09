@@ -1767,7 +1767,8 @@ describe('GET /admin/llm/models', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
-      models: [{ id: 'gpt-4o', label: 'GPT-4o', provider: 'openai' }]
+      models: [{ id: 'gpt-4o', label: 'GPT-4o', provider: 'openai' }],
+      capabilities: { openai: true }
     });
 
     await app.close();

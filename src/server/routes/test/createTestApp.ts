@@ -84,6 +84,11 @@ export interface CreateProtectedTestAppOptions {
   plugins?: import('#/config/pluginsConfig.js').PluginsConfig | null;
 
   /**
+   * Documentation search configuration passed to protected routes; defaults to null.
+   */
+  docs?: import('#/config/docsConfig.js').DocsConfig | null;
+
+  /**
    * Config reload handler for admin reload route tests.
    */
   reloadConfig?: () => Promise<ReloadResult>;
@@ -102,6 +107,7 @@ export async function createProtectedTestApp(
   const throttleStore = options.throttleStore ?? createDefaultThrottleStoreStub();
   const llm = options.llm ?? null;
   const plugins = options.plugins ?? null;
+  const docs = options.docs ?? null;
 
   if (options.withValidAuth) {
     options.db.findActiveApiTokenByHash.mockResolvedValue(sampleApiTokenRecord);
@@ -120,6 +126,7 @@ export async function createProtectedTestApp(
       throttleStore,
       getLlm: () => llm,
       getPlugins: () => plugins,
+      getDocs: () => docs,
       reloadConfig: options.reloadConfig ?? (async () => ({ sections: [] }))
     });
   });

@@ -4,6 +4,10 @@ FROM node:24-bookworm-slim AS builder
 
 WORKDIR /app
 
+RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable
 
 COPY package.json pnpm-lock.yaml ./
@@ -14,6 +18,10 @@ COPY src ./src
 
 RUN pnpm build
 RUN pnpm prune --prod
+
+ARG DOCS_INDEX_URL=https://raw.githubusercontent.com/harborclient/harborclient/main/resources/docsSearchIndex.json
+RUN mkdir -p /app/data \
+  && curl -fsSL -o /app/data/docsSearchIndex.json "${DOCS_INDEX_URL}"
 
 FROM node:24-bookworm-slim AS runtime
 
@@ -54,6 +62,7 @@ ENV PORT=8080 \
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/data/docsSearchIndex.json /app/data/docsSearchIndex.json
 
 COPY docker/entrypoint.sh /docker/entrypoint.sh
 COPY docker/start-team-hub.sh /docker/start-team-hub.sh
@@ -63,7 +72,7 @@ COPY docker/nginx.conf.template /docker/nginx.conf.template
 
 RUN chmod +x /docker/entrypoint.sh /docker/start-team-hub.sh /docker/restart-team-hub.sh \
   && ln -sf /docker/restart-team-hub.sh /usr/local/bin/restart-team-hub \
-  && mkdir -p /etc/team-hub /var/lib/postgresql/data /var/log/team-hub /var/run/team-hub \
+  && mkdir -p /etc/team-hub /var/lib/postgresql/data /var/log/team-hub /var/run/team-hub /app/data \
   && chown -R postgres:postgres /var/lib/postgresql/data
 
 EXPOSE 8080

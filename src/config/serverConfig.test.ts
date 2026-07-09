@@ -56,6 +56,7 @@ ${sampleDbSection}${sampleRedisSection}`);
       },
       llm: null,
       plugins: null,
+      docs: null,
       logging: DEFAULT_LOGGING_CONFIG
     });
   });
@@ -83,6 +84,7 @@ ${sampleDbSection}${sampleRedisSection}`);
       },
       llm: null,
       plugins: null,
+      docs: null,
       logging: DEFAULT_LOGGING_CONFIG
     });
   });
@@ -133,6 +135,7 @@ ${sampleDbSection}${sampleRedisSection}llm:
         ]
       },
       plugins: null,
+      docs: null,
       logging: DEFAULT_LOGGING_CONFIG
     });
   });
@@ -171,6 +174,7 @@ ${sampleDbSection}${sampleRedisSection}llm:
         models: ['gpt-4o']
       },
       plugins: null,
+      docs: null,
       logging: DEFAULT_LOGGING_CONFIG
     });
   });
@@ -210,6 +214,7 @@ ${sampleDbSection}${sampleRedisSection}plugins:
         ],
         trusted: ['https://harborclient.com/plugins/trusted.json']
       },
+      docs: null,
       logging: DEFAULT_LOGGING_CONFIG
     });
   });

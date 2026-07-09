@@ -20,6 +20,7 @@ The canonical example at the repository root is [`server.yaml.example`](https://
 | `logging` | No       | No          | Applied at process startup; restart after changes     |
 | `llm`     | No       | Yes         | Omit to disable hub-proxied LLM routes                |
 | `plugins` | No       | Yes         | Omit to return empty plugin source lists              |
+| `docs`    | No       | Yes         | Optional path to the documentation search index       |
 
 Reload triggers while `team-hub start` is running:
 
@@ -226,6 +227,23 @@ plugins:
   trusted:
     - https://harborclient.com/plugins/trusted.json
 ```
+
+## docs
+
+Optional documentation vector search settings for hub-native `search_docs`. Omit this section to use the Docker default path `/app/data/docsSearchIndex.json` and other built-in fallbacks.
+
+| Key               | Type   | Required | Description                                              |
+| ----------------- | ------ | -------- | -------------------------------------------------------- |
+| `searchIndexPath` | string | No       | Path to serialized `docsSearchIndex.json` (Orama export) |
+
+Rebuild the index in the harborclient repository with `pnpm index-docs`. The Docker image fetches the latest published index at build time; see [Deploy — Documentation index](./deploy.md#documentation-index).
+
+```yaml
+docs:
+  searchIndexPath: /app/data/docsSearchIndex.json
+```
+
+Hub-native docs search also requires `llm.providers.openai.apiKey`. Without OpenAI or a readable index file, `search_docs` is removed from hub chat tool lists.
 
 ## Docker environment variables
 

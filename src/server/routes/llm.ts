@@ -1,12 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import type { FastifyReply } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import type { DocsConfig } from '#/config/docsConfig.js';
 import type { LlmConfig } from '#/config/llmConfig.js';
 import type { IDatabase } from '#/db/IDatabase.js';
 import { canUseLlm, isLlmModelAllowed, isOverMonthlyLimit } from '#/server/auth/accessControl.js';
 import { runHubChatStep } from '#/server/llm/agent.js';
 import {
   currentUsagePeriod,
+  getHubLlmCapabilities,
   getHubModelById,
   isHubModelOffered,
   listHubOfferedModels
@@ -33,6 +35,11 @@ export interface RegisterLlmRoutesOptions {
    * Returns the current normalized LLM configuration from server.yaml.
    */
   getLlm: () => LlmConfig | null;
+
+  /**
+   * Returns the current normalized documentation search configuration from server.yaml.
+   */
+  getDocs: () => DocsConfig | null;
 }
 
 /**
@@ -102,7 +109,8 @@ export async function registerLlmRoutes(
           id: model.id,
           label: model.label,
           provider: model.provider
-        }))
+        })),
+        capabilities: getHubLlmCapabilities(llm)
       });
     }
   });
@@ -188,12 +196,17 @@ export async function registerLlmRoutes(
         return sendMonthlyLimitExceeded(reply);
       }
 
-      const result = await runHubChatStep(llm, {
-        model,
-        messages,
-        tools,
-        systemPrompt
-      });
+      const result = await runHubChatStep(
+        llm,
+        {
+          model,
+          messages,
+          tools,
+          systemPrompt
+        },
+        {},
+        options.getDocs()
+      );
 
       const catalogModel = getHubModelById(model);
       if (!catalogModel) {

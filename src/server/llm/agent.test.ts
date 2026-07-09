@@ -46,7 +46,10 @@ function createDeps(
         }
       }
     ]),
-    callTool: callTool ?? vi.fn(async () => JSON.stringify({ results: [{ title: 'Example' }] }))
+    callTool: callTool ?? vi.fn(async () => JSON.stringify({ results: [{ title: 'Example' }] })),
+    callNativeTool: vi.fn(async () =>
+      JSON.stringify([{ title: 'Features', url: 'https://harborclient.com/features' }])
+    )
   };
 }
 
@@ -128,6 +131,35 @@ describe('runHubChatStep', () => {
     );
 
     expect(result.toolCalls).toEqual([{ id: 'call-2', name: 'listCollections', arguments: '{}' }]);
+    expect(deps.callTool).not.toHaveBeenCalled();
+  });
+
+  it('loops on hub-native search_docs and returns final text with summed usage', async () => {
+    const deps = createDeps([
+      {
+        content: null,
+        toolCalls: [{ id: 'call-1', name: 'search_docs', arguments: '{"query":"features"}' }],
+        usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 }
+      },
+      {
+        content: 'HarborClient supports collections.',
+        usage: { promptTokens: 20, completionTokens: 8, totalTokens: 28 }
+      }
+    ]);
+
+    const result = await runHubChatStep(
+      sampleConfig,
+      {
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: 'What features does HarborClient have?' }]
+      },
+      deps,
+      { searchIndexPath: '/app/data/docsSearchIndex.json' }
+    );
+
+    expect(result.content).toBe('HarborClient supports collections.');
+    expect(result.toolCalls).toBeUndefined();
+    expect(deps.callNativeTool).toHaveBeenCalledOnce();
     expect(deps.callTool).not.toHaveBeenCalled();
   });
 

@@ -15,12 +15,12 @@ More hosting guides may be added over time.
 
 ## What is in the container
 
-| Process | Default bind | Purpose |
-| ------- | ------------ | ------- |
-| Nginx | `$PORT` (`8080`) | Reverse proxy to Team Hub |
-| Team Hub | `127.0.0.1:8787` | Fastify API |
+| Process  | Default bind     | Purpose                       |
+| -------- | ---------------- | ----------------------------- |
+| Nginx    | `$PORT` (`8080`) | Reverse proxy to Team Hub     |
+| Team Hub | `127.0.0.1:8787` | Fastify API                   |
 | Postgres | `127.0.0.1:5432` | Database (bundled by default) |
-| Redis | `127.0.0.1:6379` | Auth throttling store |
+| Redis    | `127.0.0.1:6379` | Auth throttling store         |
 
 On startup the entrypoint:
 
@@ -66,6 +66,14 @@ docker run --rm -p 8080:8080 \
 ```
 
 After the container is running, use the CLI to create an admin user — see [Using the CLI in the container](#using-the-cli-in-the-container).
+
+## Documentation index
+
+The Docker image bundles HarborClient documentation for hub-native `search_docs`. During `docker build`, the Dockerfile downloads `docsSearchIndex.json` from the harborclient repository (override with build arg `DOCS_INDEX_URL`) and copies it to `/app/data/docsSearchIndex.json`.
+
+When harborclient updates the index on `main`, CI dispatches `docs-index-updated` to this repository so operators can rebuild and redeploy the hub image with fresh docs. Configure `HUB_DEPLOY_PAT` in the harborclient repository and ensure this repository's deploy workflow listens for that event.
+
+For self-hosted deployments without rebuilding the image, mount an updated index file and point `docs.searchIndexPath` in `server.yaml` at the mount path.
 
 ## Google Cloud Run
 
@@ -141,17 +149,17 @@ For production, point Team Hub at managed Postgres and Redis and disable the bun
 
 #### Environment variables
 
-| Variable | Production value | Notes |
-| -------- | ---------------- | ----- |
-| `TEAM_HUB_START_POSTGRES` | `false` | Use Cloud SQL |
-| `TEAM_HUB_START_REDIS` | `false` | Use Memorystore |
-| `TEAM_HUB_DB_HOST` | Cloud SQL host or socket path | See Cloud SQL section |
-| `TEAM_HUB_DB_PORT` | `5432` | |
-| `TEAM_HUB_DB_USER` | your DB user | |
-| `TEAM_HUB_DB_PASSWORD` | from Secret Manager | |
-| `TEAM_HUB_DB_DATABASE` | your database name | |
-| `TEAM_HUB_REDIS_HOST` | Memorystore IP | Requires VPC connector |
-| `TEAM_HUB_REDIS_PORT` | `6379` | |
+| Variable                  | Production value              | Notes                  |
+| ------------------------- | ----------------------------- | ---------------------- |
+| `TEAM_HUB_START_POSTGRES` | `false`                       | Use Cloud SQL          |
+| `TEAM_HUB_START_REDIS`    | `false`                       | Use Memorystore        |
+| `TEAM_HUB_DB_HOST`        | Cloud SQL host or socket path | See Cloud SQL section  |
+| `TEAM_HUB_DB_PORT`        | `5432`                        |                        |
+| `TEAM_HUB_DB_USER`        | your DB user                  |                        |
+| `TEAM_HUB_DB_PASSWORD`    | from Secret Manager           |                        |
+| `TEAM_HUB_DB_DATABASE`    | your database name            |                        |
+| `TEAM_HUB_REDIS_HOST`     | Memorystore IP                | Requires VPC connector |
+| `TEAM_HUB_REDIS_PORT`     | `6379`                        |                        |
 
 Store secrets in [Secret Manager](https://cloud.google.com/secret-manager) and mount them on the Cloud Run service rather than passing passwords on the command line.
 
@@ -567,14 +575,14 @@ See [CLI](./cli.md) for all subcommands and options.
 
 Team Hub can reload `server.yaml` while the `start` process is running. Reloadable sections are applied on a **best-effort** basis: each section is evaluated independently, and failures in one section do not roll back changes already applied to other sections.
 
-| Section | Live reload? | Notes |
-| ------- | ------------ | ----- |
-| `db` | Yes | Reconnects when the raw `db` mapping changes |
-| `redis` | Yes | Reconnects when the raw `redis` mapping changes |
-| `llm` | Yes | Applied immediately |
-| `plugins` | Yes | Applied immediately |
-| `logging` | No | Applied at process startup; restart after changes |
-| `server.host` / `server.port` | No | Reported as `restart-required`; restart the process to rebind |
+| Section                       | Live reload? | Notes                                                         |
+| ----------------------------- | ------------ | ------------------------------------------------------------- |
+| `db`                          | Yes          | Reconnects when the raw `db` mapping changes                  |
+| `redis`                       | Yes          | Reconnects when the raw `redis` mapping changes               |
+| `llm`                         | Yes          | Applied immediately                                           |
+| `plugins`                     | Yes          | Applied immediately                                           |
+| `logging`                     | No           | Applied at process startup; restart after changes             |
+| `server.host` / `server.port` | No           | Reported as `restart-required`; restart the process to rebind |
 
 **Triggers:**
 
@@ -609,11 +617,11 @@ Possible `status` values per section: `reloaded`, `unchanged`, `failed`, `restar
 
 Use a full process restart when you change `server.host` or `server.port`, or when you prefer a clean boot after large infrastructure changes.
 
-| Scenario | Action |
-| -------- | ------ |
+| Scenario                                               | Action                                                                                     |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | Edited `/etc/team-hub/server.yaml` (e.g. added `llm:`) | Prefer `kill -HUP …` or `POST /admin/config/reload`; restart only if bind settings changed |
-| Changed Docker env vars (`TEAM_HUB_DB_*`, etc.) | `docker restart CONTAINER` from the host — entrypoint **regenerates** yaml from env |
-| Full stack restart (Postgres, Redis, Nginx, Team Hub) | `docker restart CONTAINER` |
+| Changed Docker env vars (`TEAM_HUB_DB_*`, etc.)        | `docker restart CONTAINER` from the host — entrypoint **regenerates** yaml from env        |
+| Full stack restart (Postgres, Redis, Nginx, Team Hub)  | `docker restart CONTAINER`                                                                 |
 
 The image includes a restart helper (no `pkill` required — the slim image does not ship `procps`):
 
@@ -678,27 +686,27 @@ Use `/health` for manual checks and uptime monitoring. The response includes `st
 
 ## Environment variable reference
 
-| Variable | Default | Description |
-| -------- | ------- | ----------- |
-| `PORT` | `8080` | Nginx listen port (some platforms inject this at runtime) |
-| `NGINX_SERVER_NAME` | `_` | Nginx `server_name` (catch-all `_`; set to your hostname for named vhosts) |
-| `TEAM_HUB_PORT` | `8787` | Internal Team Hub port |
-| `TEAM_HUB_HOST` | `127.0.0.1` | Team Hub bind address |
-| `TEAM_HUB_CONFIG` | `/etc/team-hub/server.yaml` | Config file path (generated on first boot if missing) |
-| `TEAM_HUB_FORCE_CONFIG_GENERATE` | `false` | When `true`, overwrite an existing config from env vars |
-| `TEAM_HUB_START_POSTGRES` | `true` | Start bundled Postgres |
-| `TEAM_HUB_START_REDIS` | `true` | Start bundled Redis |
-| `TEAM_HUB_DB_DRIVER` | `postgres` | `postgres`, `mysql`, or `firestore` |
-| `TEAM_HUB_DB_HOST` | `127.0.0.1` | Database host |
-| `TEAM_HUB_DB_PORT` | `5432` | Database port |
-| `TEAM_HUB_DB_USER` | `harbor` | Database user |
-| `TEAM_HUB_DB_PASSWORD` | `harbor` | Database password |
-| `TEAM_HUB_DB_DATABASE` | `harbor` | Database name |
-| `TEAM_HUB_REDIS_HOST` | `127.0.0.1` | Redis host |
-| `TEAM_HUB_REDIS_PORT` | `6379` | Redis port |
-| `TEAM_HUB_LOGGING_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
-| `TEAM_HUB_LOGGING_FILE` | `/var/log/team-hub/team-hub.log` | Log file path |
-| `TEAM_HUB_LOGGING_CONSOLE` | `true` | Write logs to the terminal |
+| Variable                         | Default                          | Description                                                                |
+| -------------------------------- | -------------------------------- | -------------------------------------------------------------------------- |
+| `PORT`                           | `8080`                           | Nginx listen port (some platforms inject this at runtime)                  |
+| `NGINX_SERVER_NAME`              | `_`                              | Nginx `server_name` (catch-all `_`; set to your hostname for named vhosts) |
+| `TEAM_HUB_PORT`                  | `8787`                           | Internal Team Hub port                                                     |
+| `TEAM_HUB_HOST`                  | `127.0.0.1`                      | Team Hub bind address                                                      |
+| `TEAM_HUB_CONFIG`                | `/etc/team-hub/server.yaml`      | Config file path (generated on first boot if missing)                      |
+| `TEAM_HUB_FORCE_CONFIG_GENERATE` | `false`                          | When `true`, overwrite an existing config from env vars                    |
+| `TEAM_HUB_START_POSTGRES`        | `true`                           | Start bundled Postgres                                                     |
+| `TEAM_HUB_START_REDIS`           | `true`                           | Start bundled Redis                                                        |
+| `TEAM_HUB_DB_DRIVER`             | `postgres`                       | `postgres`, `mysql`, or `firestore`                                        |
+| `TEAM_HUB_DB_HOST`               | `127.0.0.1`                      | Database host                                                              |
+| `TEAM_HUB_DB_PORT`               | `5432`                           | Database port                                                              |
+| `TEAM_HUB_DB_USER`               | `harbor`                         | Database user                                                              |
+| `TEAM_HUB_DB_PASSWORD`           | `harbor`                         | Database password                                                          |
+| `TEAM_HUB_DB_DATABASE`           | `harbor`                         | Database name                                                              |
+| `TEAM_HUB_REDIS_HOST`            | `127.0.0.1`                      | Redis host                                                                 |
+| `TEAM_HUB_REDIS_PORT`            | `6379`                           | Redis port                                                                 |
+| `TEAM_HUB_LOGGING_LEVEL`         | `info`                           | Log level (`debug`, `info`, `warn`, `error`)                               |
+| `TEAM_HUB_LOGGING_FILE`          | `/var/log/team-hub/team-hub.log` | Log file path                                                              |
+| `TEAM_HUB_LOGGING_CONSOLE`       | `true`                           | Write logs to the terminal                                                 |
 
 Logging env vars are applied at process startup. Restart the container after changing them.
 

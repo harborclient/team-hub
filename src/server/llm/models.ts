@@ -43,6 +43,27 @@ function hasProviderKey(config: LlmConfig, provider: LlmProvider): boolean {
 }
 
 /**
+ * Returns whether a provider has a configured API key on the hub.
+ *
+ * @param config - Normalized LLM config from server.yaml.
+ * @param provider - Provider to check.
+ */
+export function hasHubOpenAiProvider(config: LlmConfig): boolean {
+  return hasProviderKey(config, 'openai');
+}
+
+/**
+ * Returns hub LLM capability flags advertised to HarborClient clients.
+ *
+ * @param config - Normalized LLM config from server.yaml.
+ */
+export function getHubLlmCapabilities(config: LlmConfig): { openai: boolean } {
+  return {
+    openai: hasProviderKey(config, 'openai')
+  };
+}
+
+/**
  * Returns catalog models the hub offers based on configured keys and optional allow-list.
  *
  * @param config - Normalized LLM config from server.yaml.

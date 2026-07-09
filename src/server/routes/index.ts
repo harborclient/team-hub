@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { DocsConfig } from '#/config/docsConfig.js';
 import type { LlmConfig } from '#/config/llmConfig.js';
 import type { PluginsConfig } from '#/config/pluginsConfig.js';
 import type { IDatabase } from '#/db/IDatabase.js';
@@ -47,6 +48,11 @@ export interface RegisterRoutesOptions {
   getPlugins: () => PluginsConfig | null;
 
   /**
+   * Returns the current normalized documentation search configuration from server.yaml.
+   */
+  getDocs: () => DocsConfig | null;
+
+  /**
    * Reloads server.yaml and returns a per-section report.
    */
   reloadConfig: () => Promise<ReloadResult>;
@@ -90,7 +96,11 @@ export async function registerProtectedRoutes(
   await registerFolderRoutes(app, options.db);
   await registerRequestRoutes(app, options.db);
   await registerRunResultRoutes(app, options.db);
-  await registerLlmRoutes(app, { db: options.db, getLlm: options.getLlm });
+  await registerLlmRoutes(app, {
+    db: options.db,
+    getLlm: options.getLlm,
+    getDocs: options.getDocs
+  });
   await registerPluginsRoutes(app, { getPlugins: options.getPlugins });
 }
 
