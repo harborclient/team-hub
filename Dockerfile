@@ -5,7 +5,9 @@ FROM node:24-bookworm-slim AS builder
 WORKDIR /app
 
 RUN apt-get update \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
   && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable

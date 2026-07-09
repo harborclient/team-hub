@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Update Dockerfile to install ca-certificates along with curl. (`f47adf6`)
+
 ## 0.4.3 - 2026-07-09
 
 - Enhance Dockerfile and configuration for documentation search. (`d2e4206`)
