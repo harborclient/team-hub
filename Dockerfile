@@ -15,7 +15,9 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY tsconfig.json tsup.config.ts ./
+COPY tsconfig.json tsup.config.ts .prettierrc.yaml ./
+COPY scripts/build-join-logo.mjs ./scripts/
+COPY images/logo.png ./images/
 COPY src ./src
 
 RUN pnpm build
