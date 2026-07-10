@@ -3,10 +3,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import type { IDatabase } from '#/db/IDatabase.js';
 import { InvitationUnavailableError } from '#/db/invitationErrors.js';
 import { assertInvitationPending } from '#/db/invitationValidation.js';
-import {
-  hashInvitationSecret,
-  isInvitationSecretFormat
-} from '#/server/auth/invitations.js';
+import { hashInvitationSecret, isInvitationSecretFormat } from '#/server/auth/invitations.js';
 import type { IThrottleStore } from '#/server/auth/throttle/IThrottleStore.js';
 import { handleDbError } from '#/server/routes/errors.js';
 import { handleInvitationError } from '#/server/routes/invitationErrors.js';
@@ -241,11 +238,7 @@ export async function registerInvitationRoutes(
 
         let redeemed;
         try {
-          redeemed = await options.db.redeemInvitation(
-            codeHash,
-            tokenName ?? '',
-            systemUserId
-          );
+          redeemed = await options.db.redeemInvitation(codeHash, tokenName ?? '', systemUserId);
         } catch (error) {
           if (error instanceof InvitationUnavailableError) {
             if (await recordInvitationFailure(options.throttleStore, request, reply)) {

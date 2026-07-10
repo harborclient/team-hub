@@ -6,10 +6,7 @@ import type { LlmConfig } from '#/config/llmConfig.js';
 import { createDatabase } from '#/db/index.js';
 import type { ApiTokenRecord, UpdateUserInput, UserRole } from '#/db/types.js';
 import { generateApiToken } from '#/server/auth/apiTokens.js';
-import {
-  generateInvitation,
-  resolveInvitationExpiresAt
-} from '#/server/auth/invitations.js';
+import { generateInvitation, resolveInvitationExpiresAt } from '#/server/auth/invitations.js';
 import { getInvitationStatus } from '#/db/invitationRows.js';
 import {
   buildAccessCatalogIds,
@@ -597,7 +594,9 @@ export async function userInviteListCommand(options: UserCommandOptions): Promis
 
   for (const invitation of invitations) {
     const userName = usersById.get(invitation.userId) ?? invitation.userId;
-    console.log(`${invitation.id}  ${userName}  ${invitation.codePrefix}  ${getInvitationStatus(invitation)}`);
+    console.log(
+      `${invitation.id}  ${userName}  ${invitation.codePrefix}  ${getInvitationStatus(invitation)}`
+    );
     console.log(`  expires: ${invitation.expiresAt.toISOString()}`);
   }
 }
@@ -896,7 +895,9 @@ export function registerUserCommand(
 ): void {
   const user = program.command('user').description('Manage user accounts and their API tokens');
 
-  const invite = user.command('invite').description('Manage onboarding invitations for user accounts');
+  const invite = user
+    .command('invite')
+    .description('Manage onboarding invitations for user accounts');
 
   invite
     .command('create')
@@ -929,7 +930,10 @@ export function registerUserCommand(
       /**
        * Runs the user invite create subcommand after merging global CLI options.
        */
-      async function userInviteCreateAction(this: Command, options: UserInviteCreateCommandOptions) {
+      async function userInviteCreateAction(
+        this: Command,
+        options: UserInviteCreateCommandOptions
+      ) {
         await (handlers.inviteCreate ?? userInviteCreateCommand)(mergeGlobalOptions(this, options));
       }
     );
@@ -954,7 +958,11 @@ export function registerUserCommand(
       /**
        * Runs the user invite revoke subcommand after merging global CLI options.
        */
-      async function userInviteRevokeAction(this: Command, id: string, options: UserCommandOptions) {
+      async function userInviteRevokeAction(
+        this: Command,
+        id: string,
+        options: UserCommandOptions
+      ) {
         await (handlers.inviteRevoke ?? userInviteRevokeCommand)(
           mergeGlobalOptions(this, { ...options, id })
         );

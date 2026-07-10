@@ -766,9 +766,10 @@ export class PostgresDatabase implements IDatabase {
    * @param id - Invitation identifier to look up.
    */
   async findInvitationById(id: string): Promise<InvitationRecord | null> {
-    const result = await this.query<InvitationSqlRow>(`${INVITATION_SELECT} WHERE id = $1 LIMIT 1`, [
-      id
-    ]);
+    const result = await this.query<InvitationSqlRow>(
+      `${INVITATION_SELECT} WHERE id = $1 LIMIT 1`,
+      [id]
+    );
     const row = result.rows[0];
     return row ? mapInvitationSqlRow(row) : null;
   }

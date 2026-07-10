@@ -13,10 +13,7 @@ import {
 } from '#/server/admin/userValidation.js';
 import { canUseManagementApi } from '#/server/auth/accessControl.js';
 import { generateApiToken } from '#/server/auth/apiTokens.js';
-import {
-  generateInvitation,
-  resolveInvitationExpiresAt
-} from '#/server/auth/invitations.js';
+import { generateInvitation, resolveInvitationExpiresAt } from '#/server/auth/invitations.js';
 import { getHubLlmCapabilities, listHubOfferedModels } from '#/server/llm/models.js';
 import { handleDbError, handleValidationError } from '#/server/routes/errors.js';
 import { denyUnlessAllowed, requireAuthenticatedUser } from '#/server/routes/authorize.js';
@@ -404,11 +401,7 @@ export async function registerAdminRoutes(
         }
 
         const expiresAt = resolveInvitationExpiresAt(request.body.expiresInHours);
-        const { record: invitation, secret } = generateInvitation(
-          existing.id,
-          admin.id,
-          expiresAt
-        );
+        const { record: invitation, secret } = generateInvitation(existing.id, admin.id, expiresAt);
         await db.createInvitation(invitation, admin.id);
 
         return reply.code(201).send({
