@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.4 - 2026-07-10
+
 - Refactor user command and database query formatting. (`cb17155`)
 - Add user onboarding invitation management functionality. (`801d6f5`)
 - Update Dockerfile to install ca-certificates along with curl. (`f47adf6`)
