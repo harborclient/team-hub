@@ -9,6 +9,7 @@ import type { IThrottleStore } from '#/server/auth/throttle/IThrottleStore.js';
 import { createStubThrottleStore } from '#/server/auth/throttle/stubThrottleStore.js';
 import {
   createRuntimeContext,
+  connectRuntimeContext,
   disconnectAll,
   logConfigReloadResult,
   reloadRuntimeConfig
@@ -68,6 +69,7 @@ function createTrackedDatabase(label: string): Mocked<IDatabase> {
   const db = createStubDatabase();
   db.connect.mockImplementation(async () => undefined);
   db.disconnect.mockImplementation(async () => undefined);
+  db.ensureSystemUser.mockImplementation(async () => undefined);
   Object.defineProperty(db, '__label', { value: label });
   return db;
 }
@@ -202,6 +204,7 @@ redis:
       ])
     );
     expect(nextDb.connect).toHaveBeenCalledOnce();
+    expect(nextDb.ensureSystemUser).toHaveBeenCalledOnce();
     expect(initialDb.disconnect).toHaveBeenCalledOnce();
     expect(nextStore.connect).toHaveBeenCalledOnce();
     expect(initialStore.disconnect).toHaveBeenCalledOnce();
@@ -336,6 +339,28 @@ describe('logConfigReloadResult', () => {
     );
 
     error.mockRestore();
+  });
+});
+
+describe('connectRuntimeContext', () => {
+  it('connects the database and provisions the system user without running migrate', async () => {
+    const db = createTrackedDatabase('db-initial');
+    const store = createTrackedThrottleStore('redis-initial');
+    createDatabaseMock.mockReturnValue(db);
+    createThrottleStoreMock.mockReturnValue(store);
+
+    const configPath = writeConfig(`server:
+  port: 8787
+  host: 127.0.0.1
+${sampleDbSection}${sampleRedisSection}`);
+    const ctx = createRuntimeContext(loadServerConfig(configPath), configPath);
+
+    await connectRuntimeContext(ctx);
+
+    expect(db.connect).toHaveBeenCalledOnce();
+    expect(db.ensureSystemUser).toHaveBeenCalledOnce();
+    expect(db.migrate).not.toHaveBeenCalled();
+    expect(store.connect).toHaveBeenCalledOnce();
   });
 });
 

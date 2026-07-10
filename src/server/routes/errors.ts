@@ -84,6 +84,15 @@ export function handleDbError(reply: FastifyReply, error: unknown): boolean {
     return true;
   }
 
+  if (error.message === 'System user is not provisioned') {
+    void reply.code(503).send(
+      errorResponseSchema.parse({
+        error: 'Team Hub is not fully provisioned. Run database migrations and restart the server.'
+      })
+    );
+    return true;
+  }
+
   if (error.message.toLowerCase().includes('not found')) {
     void reply.code(404).send(errorResponseSchema.parse({ error: error.message }));
     return true;

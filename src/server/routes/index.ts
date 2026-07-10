@@ -12,6 +12,7 @@ import { registerEnvironmentRoutes } from '#/server/routes/environments.js';
 import { registerSnippetRoutes } from '#/server/routes/snippets.js';
 import { registerFolderRoutes } from '#/server/routes/folders.js';
 import { registerHealthRoute } from '#/server/routes/health.js';
+import { registerJoinRoute } from '#/server/routes/join.js';
 import { registerRequestRoutes } from '#/server/routes/requests.js';
 import { registerRunResultRoutes } from '#/server/routes/runResults.js';
 import { registerLlmRoutes } from '#/server/routes/llm.js';
@@ -70,6 +71,7 @@ export async function registerPublicRoutes(
   options: Pick<RegisterRoutesOptions, 'version' | 'db' | 'throttleStore'>
 ): Promise<void> {
   await registerHealthRoute(app, options.version);
+  await registerJoinRoute(app);
   await registerInvitationRoutes(app, {
     db: options.db,
     throttleStore: options.throttleStore

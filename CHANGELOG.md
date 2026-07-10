@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Implement onboarding invitation landing page and related features. (`124b28f`)
+
 ## 0.4.4 - 2026-07-10
 
 - Refactor user command and database query formatting. (`cb17155`)

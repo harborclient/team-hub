@@ -229,6 +229,7 @@ export function createRuntimeContext(config: ServerConfig, configPath: string): 
 export async function connectRuntimeContext(ctx: RuntimeContext): Promise<void> {
   const state = getState(ctx);
   await state.dbHolder.underlying.connect();
+  await state.dbHolder.underlying.ensureSystemUser();
   await state.throttleHolder.underlying.connect();
 }
 
@@ -261,6 +262,7 @@ async function reloadDbSection(
   try {
     const nextDb = createDatabase(nextDbConfig);
     await nextDb.connect();
+    await nextDb.ensureSystemUser();
     const previousDb = state.dbHolder.underlying;
     state.dbHolder.underlying = nextDb;
     state.activeDbConfig = nextDbConfig;

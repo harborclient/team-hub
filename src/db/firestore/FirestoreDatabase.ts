@@ -1972,7 +1972,7 @@ export class FirestoreDatabase implements IDatabase {
    * Inserts directly rather than calling {@link createUser} to avoid recursion
    * during migration bootstrap.
    */
-  private async ensureSystemUser(): Promise<void> {
+  async ensureSystemUser(): Promise<void> {
     const existing = await this.findUserByName(SYSTEM_USER_NAME);
     if (existing) {
       this.systemUserId = existing.id;

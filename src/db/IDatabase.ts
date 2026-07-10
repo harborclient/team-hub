@@ -52,6 +52,14 @@ export interface IDatabase {
   getSystemUserId(): string | null;
 
   /**
+   * Provisions the internal system user when missing and caches its id.
+   *
+   * Idempotent and safe to call on every connect; assumes migrations have
+   * already created the schema.
+   */
+  ensureSystemUser(): Promise<void>;
+
+  /**
    * Lists audit log entries ordered newest-first with optional filters.
    *
    * @param options - Optional limit and filter criteria.

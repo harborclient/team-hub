@@ -109,4 +109,22 @@ describe('POST /auth/invitations/redeem', () => {
 
     await app.close();
   });
+
+  it('returns 503 when the system user is not provisioned', async () => {
+    const db = createStubDatabase();
+    db.getSystemUserId.mockReturnValue(null);
+
+    const app = await createPublicTestApp({ db });
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/invitations/redeem',
+      payload: { secret: invitationSecret }
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json().error).toContain('not fully provisioned');
+    expect(db.redeemInvitation).not.toHaveBeenCalled();
+
+    await app.close();
+  });
 });

@@ -1,6 +1,6 @@
 # API Endpoints
 
-Team Hub exposes a JSON HTTP API for shared collections, environments, snippets, folders, and saved requests. All routes except `GET /health` require a valid bearer token — see [Authentication](./auth.md).
+Team Hub exposes a JSON HTTP API for shared collections, environments, snippets, folders, and saved requests. Public routes include `GET /health`, `GET /join`, and the invitation preview/redeem endpoints documented below. All other routes require a valid bearer token — see [Authentication](./auth.md).
 
 ## Overview
 
@@ -86,6 +86,14 @@ Public health check for load balancers and HarborClient connectivity probes. No 
 ```bash
 curl -s http://127.0.0.1:8788/health
 ```
+
+### GET /join
+
+Public HTML landing page for Team Hub onboarding invitations. No authentication required.
+
+The page renders invitation details from the query string (`url`, `name`, `role`, `exp`, optional `hub`, optional `access`). The one-time invitation secret must appear in the URL fragment (`#code=hbi_...`) so it is not sent to the server or stored in proxy access logs.
+
+HarborClient administrators generate HTTPS invite links from the desktop app. Recipients click the link in a browser, review the invitation details, and launch HarborClient with a `harborclient://team-hub/join?...` deep link.
 
 ## Authentication
 

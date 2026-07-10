@@ -214,3 +214,23 @@ Token prefix: hbk_AbCd1234
 Store this token now; it will not be shown again:
 hbk_...
 ```
+
+## Onboarding invitations
+
+Team Hub supports single-use onboarding invitations for `user`-role accounts. Administrators create invited users without issuing an unused permanent API token. The invitee redeems the invitation once to receive a standard `hbk_…` bearer token.
+
+### Invite link format
+
+HarborClient generates HTTPS invite links in this shape:
+
+```text
+https://<hub-base-url>/join?url=<hub-base-url>&name=<user>&role=<user|admin>&exp=<iso8601>#code=hbi_...
+```
+
+Non-secret display fields live in the query string. The one-time invitation secret lives in the URL fragment so it is not sent to the server when the join page loads.
+
+The public `GET /join` page renders invitation details and launches HarborClient with a `harborclient://team-hub/join?...` deep link. Redemption happens only when the invitee accepts the invitation inside HarborClient.
+
+### Invitation secrets
+
+Invitation secrets use the `hbi_` prefix. They are single-use, expire after a configurable number of hours (default 24), and can be revoked by an administrator before redemption. The server stores only a sha256 hash of each invitation secret.
