@@ -14,6 +14,7 @@ export type AuditAction = 'create' | 'update' | 'delete' | 'reorder' | 'move';
 export type AuditEntityType =
   | 'user'
   | 'api_token'
+  | 'invitation'
   | 'collection'
   | 'environment'
   | 'snippet'
@@ -307,6 +308,123 @@ export interface ApiTokenRecord {
    * User who last updated the token record.
    */
   updatedByUserId: string | null;
+}
+
+/**
+ * Stored metadata for a single-use user onboarding invitation.
+ *
+ * The raw invitation secret is never persisted; only its sha256 hash is stored.
+ */
+export interface InvitationRecord {
+  /**
+   * Stable identifier used for admin listing and revocation.
+   */
+  id: string;
+
+  /**
+   * User account that receives an API token when the invitation is redeemed.
+   */
+  userId: string;
+
+  /**
+   * sha256 hex digest of the invitation secret.
+   */
+  codeHash: string;
+
+  /**
+   * Non-secret prefix shown in listings (for example `hbi_AbCd1234`).
+   */
+  codePrefix: string;
+
+  /**
+   * When the invitation stops being redeemable.
+   */
+  expiresAt: Date;
+
+  /**
+   * When the invitation was redeemed; null means it is still pending or revoked.
+   */
+  redeemedAt: Date | null;
+
+  /**
+   * When the invitation was revoked by an operator; null means not revoked.
+   */
+  revokedAt: Date | null;
+
+  /**
+   * When the invitation was created.
+   */
+  createdAt: Date;
+
+  /**
+   * User who created the invitation.
+   */
+  createdByUserId: string | null;
+
+  /**
+   * User who last updated the invitation.
+   */
+  updatedByUserId: string | null;
+}
+
+/**
+ * Fields required to create a user account together with an initial invitation.
+ */
+export interface CreateInvitedUserInput extends CreateUserInput {
+  /**
+   * Optional invitation lifetime in hours; defaults to 24 when omitted.
+   */
+  expiresInHours?: number;
+}
+
+/**
+ * Fields required to issue a replacement invitation for an existing user.
+ */
+export interface CreateUserInvitationInput {
+  /**
+   * Existing user account that will receive access after redemption.
+   */
+  userId: string;
+
+  /**
+   * Optional invitation lifetime in hours; defaults to 24 when omitted.
+   */
+  expiresInHours?: number;
+}
+
+/**
+ * Result of atomically creating a user account and its initial invitation.
+ */
+export interface CreatedInvitedUserResult {
+  /**
+   * Newly created user account without any API tokens yet.
+   */
+  user: UserRecord;
+
+  /**
+   * Persisted invitation metadata (secret hash only).
+   */
+  invitation: InvitationRecord;
+}
+
+/**
+ * Result of redeeming a pending invitation into a permanent API token.
+ */
+export interface RedeemedInvitationResult {
+  /**
+   * User account that now owns the issued API token.
+   */
+  user: UserRecord;
+
+  /**
+   * Newly created permanent API token metadata.
+   */
+  token: ApiTokenRecord;
+
+  /**
+   * One-time plaintext bearer secret for HarborClient storage.
+   */
+  secret: string;
 }
 
 /**

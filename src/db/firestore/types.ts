@@ -89,6 +89,56 @@ export interface FirestoreUserDocument {
 }
 
 /**
+ * Firestore document shape for persisted user onboarding invitations.
+ */
+export interface FirestoreInvitationDocument {
+  /**
+   * Invited user identifier.
+   */
+  userId: string;
+
+  /**
+   * sha256 hex digest of the invitation secret.
+   */
+  codeHash: string;
+
+  /**
+   * Non-secret prefix shown in listings.
+   */
+  codePrefix: string;
+
+  /**
+   * When the invitation stops being redeemable.
+   */
+  expiresAt: Date;
+
+  /**
+   * When the invitation was redeemed; null means still pending or revoked.
+   */
+  redeemedAt: Date | null;
+
+  /**
+   * When the invitation was revoked; null means not revoked.
+   */
+  revokedAt: Date | null;
+
+  /**
+   * When the invitation was created.
+   */
+  createdAt: Date;
+
+  /**
+   * User who created the invitation.
+   */
+  createdByUserId: string | null;
+
+  /**
+   * User who last updated the invitation.
+   */
+  updatedByUserId: string | null;
+}
+
+/**
  * Firestore document shape for persisted API tokens.
  */
 export interface FirestoreApiTokenDocument {

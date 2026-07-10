@@ -2,12 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { Firestore, type DocumentReference, type Query } from '@google-cloud/firestore';
 import { resolveActingUserName } from '#/db/attribution.js';
 import { BOOTSTRAP_USER_NAME } from '#/db/bootstrapUsers.js';
+import { InvitationUnavailableError } from '#/db/invitationErrors.js';
 import {
   API_TOKENS_COLLECTION,
   AUDIT_LOG_COLLECTION,
   COLLECTIONS_COLLECTION,
   ENVIRONMENTS_COLLECTION,
   FOLDERS_COLLECTION,
+  INVITATIONS_COLLECTION,
   LLM_USAGE_COLLECTION,
   LLM_USAGE_LOG_COLLECTION,
   REQUESTS_COLLECTION,
@@ -25,6 +27,7 @@ import type {
   FirestoreDatabaseConfig,
   FirestoreEnvironmentDocument,
   FirestoreFolderDocument,
+  FirestoreInvitationDocument,
   FirestoreLlmUsageDocument,
   FirestoreLlmUsageLogDocument,
   FirestoreRequestDocument,
@@ -38,6 +41,7 @@ import {
   mapFirestoreCollection,
   mapFirestoreEnvironment,
   mapFirestoreFolder,
+  mapFirestoreInvitation,
   mapFirestoreLlmUsage,
   mapFirestoreLlmUsageLog,
   mapFirestoreRequest,
@@ -47,6 +51,7 @@ import {
 } from '#/db/firestore/utils.js';
 import type { IDatabase } from '#/db/IDatabase.js';
 import { buildDefaultRunResultLabel, parseRunResultPayload } from '#/db/runResultPayload.js';
+import { generateApiToken } from '#/server/auth/apiTokens.js';
 import { trimRequiredName } from '#/db/trimRequiredName.js';
 import { assertUserNameAvailable, assertUserNameNotReserved } from '#/db/userNameValidation.js';
 import type {
@@ -58,13 +63,16 @@ import type {
   CollectionRecord,
   CreateRunResultInput,
   CreateUserInput,
+  CreatedInvitedUserResult,
   CreateLlmUsageLogInput,
   EnvironmentRecord,
   FolderRecord,
+  InvitationRecord,
   KeyValue,
   ListAuditLogOptions,
   LlmUsageLogRecord,
   LlmUsageRecord,
+  RedeemedInvitationResult,
   SaveRequestInput,
   RunResultRecord,
   SavedRequestRecord,
@@ -580,6 +588,261 @@ export class FirestoreDatabase implements IDatabase {
       .collection(API_TOKENS_COLLECTION)
       .doc(id)
       .update({ lastUsedAt: when });
+  }
+
+  /**
+   * Creates a user account and its initial onboarding invitation in one transaction.
+   *
+   * @param userId - Pre-generated stable identifier for the new user.
+   * @param input - User fields to persist.
+   * @param invitation - Invitation metadata including the stored code hash.
+   * @param actingUserId - User performing the create action.
+   */
+  async createInvitedUser(
+    userId: string,
+    input: CreateUserInput,
+    invitation: InvitationRecord,
+    actingUserId: string
+  ): Promise<CreatedInvitedUserResult> {
+    const trimmedName = trimRequiredName(input.name, 'User name');
+    assertUserNameNotReserved(trimmedName);
+    const now = new Date();
+    const client = this.requireClient();
+    const userRef = client.collection(USERS_COLLECTION).doc(userId);
+    const invitationRef = client.collection(INVITATIONS_COLLECTION).doc(invitation.id);
+    const userData: FirestoreUserDocument = {
+      name: trimmedName,
+      role: input.role,
+      collectionAccess: input.collectionAccess,
+      environmentAccess: input.environmentAccess,
+      snippetAccess: input.snippetAccess,
+      llmAccess: input.llmAccess ?? false,
+      llmModels: input.llmModels ?? [],
+      llmMonthlyTokenLimit: input.llmMonthlyTokenLimit ?? null,
+      createdAt: now,
+      updatedAt: now,
+      createdByUserId: actingUserId,
+      updatedByUserId: actingUserId
+    };
+    const invitationData: FirestoreInvitationDocument = {
+      userId: invitation.userId,
+      codeHash: invitation.codeHash,
+      codePrefix: invitation.codePrefix,
+      expiresAt: invitation.expiresAt,
+      redeemedAt: invitation.redeemedAt,
+      revokedAt: invitation.revokedAt,
+      createdAt: invitation.createdAt,
+      createdByUserId: actingUserId,
+      updatedByUserId: actingUserId
+    };
+
+    await client.runTransaction(async (transaction) => {
+      transaction.set(userRef, userData);
+      transaction.set(invitationRef, invitationData);
+    });
+
+    await this.recordAuditEntry(actingUserId, 'create', 'user', userId);
+    await this.recordAuditEntry(actingUserId, 'create', 'invitation', invitation.id);
+
+    return {
+      user: mapFirestoreUser(userId, userData),
+      invitation
+    };
+  }
+
+  /**
+   * Persists a new onboarding invitation for an existing user account.
+   *
+   * @param invitation - Invitation metadata including the stored code hash.
+   * @param actingUserId - User performing the create action.
+   */
+  async createInvitation(
+    invitation: InvitationRecord,
+    actingUserId: string
+  ): Promise<InvitationRecord> {
+    const user = await this.findUserById(invitation.userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const data: FirestoreInvitationDocument = {
+      userId: invitation.userId,
+      codeHash: invitation.codeHash,
+      codePrefix: invitation.codePrefix,
+      expiresAt: invitation.expiresAt,
+      redeemedAt: invitation.redeemedAt,
+      revokedAt: invitation.revokedAt,
+      createdAt: invitation.createdAt,
+      createdByUserId: actingUserId,
+      updatedByUserId: actingUserId
+    };
+
+    await this.requireClient().collection(INVITATIONS_COLLECTION).doc(invitation.id).set(data);
+    await this.recordAuditEntry(actingUserId, 'create', 'invitation', invitation.id);
+    return invitation;
+  }
+
+  /**
+   * Finds an invitation by stable identifier.
+   *
+   * @param id - Invitation identifier to look up.
+   */
+  async findInvitationById(id: string): Promise<InvitationRecord | null> {
+    const snapshot = await this.requireClient().collection(INVITATIONS_COLLECTION).doc(id).get();
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    return mapFirestoreInvitation(snapshot.id, snapshot.data() as FirestoreInvitationDocument);
+  }
+
+  /**
+   * Finds an invitation by the sha256 hash of its secret.
+   *
+   * @param codeHash - sha256 hex digest of the invitation secret.
+   */
+  async findInvitationByCodeHash(codeHash: string): Promise<InvitationRecord | null> {
+    const snapshot = await this.requireClient()
+      .collection(INVITATIONS_COLLECTION)
+      .where('codeHash', '==', codeHash)
+      .limit(1)
+      .get();
+
+    const doc = snapshot.docs[0];
+    if (!doc) {
+      return null;
+    }
+
+    return mapFirestoreInvitation(doc.id, doc.data() as FirestoreInvitationDocument);
+  }
+
+  /**
+   * Lists all invitations ordered by creation time descending.
+   */
+  async listInvitations(): Promise<InvitationRecord[]> {
+    const snapshot = await this.requireClient()
+      .collection(INVITATIONS_COLLECTION)
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    return snapshot.docs.map((doc) =>
+      mapFirestoreInvitation(doc.id, doc.data() as FirestoreInvitationDocument)
+    );
+  }
+
+  /**
+   * Revokes a pending invitation by id.
+   *
+   * @param id - Invitation identifier to revoke.
+   * @param actingUserId - User performing the revoke action.
+   */
+  async revokeInvitation(id: string, actingUserId: string): Promise<boolean> {
+    const docRef = this.requireClient().collection(INVITATIONS_COLLECTION).doc(id);
+    const snapshot = await docRef.get();
+    if (!snapshot.exists) {
+      return false;
+    }
+
+    const data = snapshot.data() as FirestoreInvitationDocument;
+    const now = new Date();
+    if (
+      data.redeemedAt !== null ||
+      data.revokedAt !== null ||
+      data.expiresAt.getTime() <= now.getTime()
+    ) {
+      return false;
+    }
+
+    await docRef.update({ revokedAt: now, updatedByUserId: actingUserId });
+    await this.recordAuditEntry(actingUserId, 'update', 'invitation', id);
+    return true;
+  }
+
+  /**
+   * Atomically consumes a pending invitation and issues a permanent API token.
+   *
+   * @param codeHash - sha256 hex digest of the invitation secret.
+   * @param tokenName - Label stored on the newly created API token.
+   * @param actingUserId - Internal user attributed with the redemption action.
+   */
+  async redeemInvitation(
+    codeHash: string,
+    tokenName: string,
+    actingUserId: string
+  ): Promise<RedeemedInvitationResult> {
+    const now = new Date();
+    const client = this.requireClient();
+    const invitationQuery = client
+      .collection(INVITATIONS_COLLECTION)
+      .where('codeHash', '==', codeHash)
+      .limit(1);
+
+    let user!: UserRecord;
+    let invitation!: InvitationRecord;
+    let token!: ApiTokenRecord;
+    let secret!: string;
+
+    await client.runTransaction(async (transaction) => {
+      const invitationSnapshot = await transaction.get(invitationQuery);
+      const invitationDoc = invitationSnapshot.docs[0];
+      if (!invitationDoc) {
+        throw new InvitationUnavailableError('not_found');
+      }
+
+      const invitationData = invitationDoc.data() as FirestoreInvitationDocument;
+      if (invitationData.redeemedAt) {
+        throw new InvitationUnavailableError('redeemed');
+      }
+
+      if (invitationData.revokedAt) {
+        throw new InvitationUnavailableError('revoked');
+      }
+
+      if (invitationData.expiresAt.getTime() <= now.getTime()) {
+        throw new InvitationUnavailableError('expired');
+      }
+
+      transaction.update(invitationDoc.ref, {
+        redeemedAt: now,
+        updatedByUserId: actingUserId
+      });
+
+      const userRef = client.collection(USERS_COLLECTION).doc(invitationData.userId);
+      const userSnapshot = await transaction.get(userRef);
+      if (!userSnapshot.exists) {
+        throw new Error('User not found');
+      }
+
+      user = mapFirestoreUser(userSnapshot.id, userSnapshot.data() as FirestoreUserDocument);
+      invitation = mapFirestoreInvitation(invitationDoc.id, {
+        ...invitationData,
+        redeemedAt: now,
+        updatedByUserId: actingUserId
+      });
+
+      const generated = generateApiToken(user.id, tokenName);
+      token = generated.record;
+      secret = generated.secret;
+
+      const tokenRef = client.collection(API_TOKENS_COLLECTION).doc(token.id);
+      const tokenData: FirestoreApiTokenDocument = {
+        userId: token.userId,
+        name: token.name,
+        tokenHash: token.tokenHash,
+        tokenPrefix: token.tokenPrefix,
+        createdAt: token.createdAt,
+        lastUsedAt: token.lastUsedAt,
+        revokedAt: token.revokedAt,
+        createdByUserId: actingUserId,
+        updatedByUserId: actingUserId
+      };
+      transaction.set(tokenRef, tokenData);
+    });
+
+    await this.recordAuditEntry(actingUserId, 'update', 'invitation', invitation.id);
+    await this.recordAuditEntry(actingUserId, 'create', 'api_token', token.id);
+
+    return { user, token, secret };
   }
 
   /**

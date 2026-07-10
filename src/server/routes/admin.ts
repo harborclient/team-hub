@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { randomUUID } from 'node:crypto';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import type { IDatabase } from '#/db/IDatabase.js';
 import type { UserRole } from '#/db/types.js';
@@ -12,6 +13,10 @@ import {
 } from '#/server/admin/userValidation.js';
 import { canUseManagementApi } from '#/server/auth/accessControl.js';
 import { generateApiToken } from '#/server/auth/apiTokens.js';
+import {
+  generateInvitation,
+  resolveInvitationExpiresAt
+} from '#/server/auth/invitations.js';
 import { getHubLlmCapabilities, listHubOfferedModels } from '#/server/llm/models.js';
 import { handleDbError, handleValidationError } from '#/server/routes/errors.js';
 import { denyUnlessAllowed, requireAuthenticatedUser } from '#/server/routes/authorize.js';
@@ -39,6 +44,12 @@ import {
   updateAdminSnippetBodySchema,
   updateAdminUserBodySchema
 } from '#/server/routes/schemas/admin.js';
+import {
+  createAdminInvitedUserBodySchema,
+  createAdminInvitationResponseSchema,
+  listAdminInvitationsResponseSchema,
+  serializeHubInvitation
+} from '#/server/routes/schemas/invitations.js';
 import {
   errorResponseSchema,
   idParamSchema,
@@ -287,6 +298,196 @@ export async function registerAdminRoutes(
         });
       } catch (error) {
         if (handleValidationError(reply, error) || handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'POST',
+    url: '/admin/invited-users',
+    schema: {
+      body: createAdminInvitedUserBodySchema,
+      response: {
+        201: createAdminInvitationResponseSchema,
+        400: errorResponseSchema,
+        403: errorResponseSchema
+      }
+    },
+    /**
+     * Creates a user account and a single-use onboarding invitation without issuing an API token.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(user))) {
+          return;
+        }
+
+        const input = buildAdminUserCreateInput(request.body);
+        const llm = getLlm();
+        const [collections, environments, snippets] = await Promise.all([
+          db.listCollections(),
+          db.listEnvironments(),
+          db.listSnippets()
+        ]);
+        const catalogs = buildAccessCatalogIds(
+          collections,
+          environments,
+          snippets,
+          llm ? listHubOfferedModels(llm).map((model) => model.id) : null
+        );
+        validateSubmittedAccessLists(
+          {
+            role: request.body.role,
+            collectionAccess: request.body.collectionAccess,
+            environmentAccess: request.body.environmentAccess,
+            snippetAccess: request.body.snippetAccess,
+            llmModels: request.body.llmModels
+          },
+          catalogs
+        );
+
+        const userId = randomUUID();
+        const expiresAt = resolveInvitationExpiresAt(request.body.expiresInHours);
+        const { record: invitation, secret } = generateInvitation(userId, user.id, expiresAt);
+        const created = await db.createInvitedUser(userId, input, invitation, user.id);
+
+        return reply.code(201).send({
+          user: serializeHubUser(created.user),
+          invitation: serializeHubInvitation(created.invitation),
+          secret
+        });
+      } catch (error) {
+        if (handleValidationError(reply, error) || handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'POST',
+    url: '/admin/users/:id/invitations',
+    schema: {
+      params: idParamSchema,
+      body: createAdminInvitedUserBodySchema.pick({ expiresInHours: true }),
+      response: {
+        201: createAdminInvitationResponseSchema,
+        400: errorResponseSchema,
+        403: errorResponseSchema,
+        404: errorResponseSchema
+      }
+    },
+    /**
+     * Issues a replacement onboarding invitation for an existing user account.
+     */
+    handler: async (request, reply) => {
+      try {
+        const admin = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(admin))) {
+          return;
+        }
+
+        const existing = await db.findUserById(request.params.id);
+        if (!existing) {
+          return reply.code(404).send({ error: 'User not found' });
+        }
+
+        if (denySystemUserTarget(reply, existing, db.getSystemUserId())) {
+          return;
+        }
+
+        const expiresAt = resolveInvitationExpiresAt(request.body.expiresInHours);
+        const { record: invitation, secret } = generateInvitation(
+          existing.id,
+          admin.id,
+          expiresAt
+        );
+        await db.createInvitation(invitation, admin.id);
+
+        return reply.code(201).send({
+          user: serializeHubUser(existing),
+          invitation: serializeHubInvitation(invitation),
+          secret
+        });
+      } catch (error) {
+        if (handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'GET',
+    url: '/admin/invitations',
+    schema: {
+      response: {
+        200: listAdminInvitationsResponseSchema,
+        403: errorResponseSchema
+      }
+    },
+    /**
+     * Lists onboarding invitations for operator review and recovery.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(user))) {
+          return;
+        }
+
+        const invitations = await db.listInvitations();
+        return reply.send({
+          invitations: invitations.map((invitation) => serializeHubInvitation(invitation))
+        });
+      } catch (error) {
+        if (handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'DELETE',
+    url: '/admin/invitations/:id',
+    schema: {
+      params: idParamSchema,
+      response: {
+        204: emptyResponseSchema,
+        403: errorResponseSchema,
+        404: errorResponseSchema
+      }
+    },
+    /**
+     * Revokes a pending onboarding invitation so it can no longer be redeemed.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(user))) {
+          return;
+        }
+
+        const revoked = await db.revokeInvitation(request.params.id, user.id);
+        if (!revoked) {
+          return reply.code(404).send({ error: 'Invitation not found or not revocable.' });
+        }
+
+        return reply.code(204).send(null);
+      } catch (error) {
+        if (handleDbError(reply, error)) {
           return;
         }
 

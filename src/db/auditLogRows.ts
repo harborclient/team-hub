@@ -77,6 +77,7 @@ function parseAuditEntityType(value: string): AuditEntityType {
   if (
     value === 'user' ||
     value === 'api_token' ||
+    value === 'invitation' ||
     value === 'collection' ||
     value === 'environment' ||
     value === 'snippet' ||

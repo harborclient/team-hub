@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import mysql, { type Pool, type ResultSetHeader, type RowDataPacket } from 'mysql2/promise';
 import { mapApiTokenSqlRow, type ApiTokenSqlRow } from '#/db/apiTokenRows.js';
+import { InvitationUnavailableError } from '#/db/invitationErrors.js';
+import { mapInvitationSqlRow, type InvitationSqlRow } from '#/db/invitationRows.js';
+import { INVITATION_SELECT } from '#/db/mysql/invitationSql.js';
+import { generateApiToken } from '#/server/auth/apiTokens.js';
 import { resolveActingUserName } from '#/db/attribution.js';
 import {
   mapAuditLogSqlRow,
@@ -61,14 +65,17 @@ import type {
   AuthConfig,
   CollectionRecord,
   CreateUserInput,
+  CreatedInvitedUserResult,
   CreateLlmUsageLogInput,
   CreateRunResultInput,
   EnvironmentRecord,
   FolderRecord,
+  InvitationRecord,
   KeyValue,
   ListAuditLogOptions,
   LlmUsageLogRecord,
   LlmUsageRecord,
+  RedeemedInvitationResult,
   RunResultRecord,
   SaveRequestInput,
   SavedRequestRecord,
@@ -601,6 +608,339 @@ export class MysqlDatabase implements IDatabase {
    */
   async touchApiTokenLastUsed(id: string, when: Date): Promise<void> {
     await this.executeStatement(`UPDATE api_tokens SET last_used_at = ? WHERE id = ?`, [when, id]);
+  }
+
+  /**
+   * Creates a user account and its initial onboarding invitation in one transaction.
+   *
+   * @param userId - Pre-generated stable identifier for the new user.
+   * @param input - User fields to persist.
+   * @param invitation - Invitation metadata including the stored code hash.
+   * @param actingUserId - User performing the create action.
+   */
+  async createInvitedUser(
+    userId: string,
+    input: CreateUserInput,
+    invitation: InvitationRecord,
+    actingUserId: string
+  ): Promise<CreatedInvitedUserResult> {
+    const trimmedName = trimRequiredName(input.name, 'User name');
+    assertUserNameNotReserved(trimmedName);
+    const now = new Date();
+    const connection = await this.requirePool().getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      await connection.execute(
+        `INSERT INTO users (
+          id,
+          name,
+          role,
+          collection_access,
+          environment_access,
+          snippet_access,
+          llm_access,
+          llm_models,
+          llm_monthly_token_limit,
+          created_at,
+          updated_at,
+          created_by_user_id,
+          updated_by_user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          userId,
+          trimmedName,
+          input.role,
+          serializeAccessList(input.collectionAccess),
+          serializeAccessList(input.environmentAccess),
+          serializeAccessList(input.snippetAccess),
+          input.llmAccess ? 1 : 0,
+          serializeAccessList(input.llmModels ?? []),
+          input.llmMonthlyTokenLimit ?? null,
+          now,
+          now,
+          actingUserId,
+          actingUserId
+        ]
+      );
+
+      const [userRows] = await connection.execute<(UserSqlRow & RowDataPacket)[]>(
+        `${USER_SELECT} WHERE id = ? LIMIT 1`,
+        [userId]
+      );
+      const userRow = userRows[0];
+      if (!userRow) {
+        throw new Error('User not found after insert');
+      }
+
+      await connection.execute(
+        `INSERT INTO user_invitations (
+          id,
+          user_id,
+          code_hash,
+          code_prefix,
+          expires_at,
+          redeemed_at,
+          revoked_at,
+          created_at,
+          created_by_user_id,
+          updated_by_user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          invitation.id,
+          invitation.userId,
+          invitation.codeHash,
+          invitation.codePrefix,
+          invitation.expiresAt,
+          invitation.redeemedAt,
+          invitation.revokedAt,
+          invitation.createdAt,
+          actingUserId,
+          actingUserId
+        ]
+      );
+
+      await connection.commit();
+
+      await this.recordAuditEntry(actingUserId, 'create', 'user', userId);
+      await this.recordAuditEntry(actingUserId, 'create', 'invitation', invitation.id);
+
+      return {
+        user: mapUserSqlRow(userRow),
+        invitation
+      };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  /**
+   * Persists a new onboarding invitation for an existing user account.
+   *
+   * @param invitation - Invitation metadata including the stored code hash.
+   * @param actingUserId - User performing the create action.
+   */
+  async createInvitation(
+    invitation: InvitationRecord,
+    actingUserId: string
+  ): Promise<InvitationRecord> {
+    const user = await this.findUserById(invitation.userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    await this.executeStatement(
+      `INSERT INTO user_invitations (
+        id,
+        user_id,
+        code_hash,
+        code_prefix,
+        expires_at,
+        redeemed_at,
+        revoked_at,
+        created_at,
+        created_by_user_id,
+        updated_by_user_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        invitation.id,
+        invitation.userId,
+        invitation.codeHash,
+        invitation.codePrefix,
+        invitation.expiresAt,
+        invitation.redeemedAt,
+        invitation.revokedAt,
+        invitation.createdAt,
+        actingUserId,
+        actingUserId
+      ]
+    );
+
+    await this.recordAuditEntry(actingUserId, 'create', 'invitation', invitation.id);
+    return invitation;
+  }
+
+  /**
+   * Finds an invitation by stable identifier.
+   *
+   * @param id - Invitation identifier to look up.
+   */
+  async findInvitationById(id: string): Promise<InvitationRecord | null> {
+    const rows = await this.queryRows<InvitationSqlRow & RowDataPacket>(
+      `${INVITATION_SELECT} WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    const row = rows[0];
+    return row ? mapInvitationSqlRow(row) : null;
+  }
+
+  /**
+   * Finds an invitation by the sha256 hash of its secret.
+   *
+   * @param codeHash - sha256 hex digest of the invitation secret.
+   */
+  async findInvitationByCodeHash(codeHash: string): Promise<InvitationRecord | null> {
+    const rows = await this.queryRows<InvitationSqlRow & RowDataPacket>(
+      `${INVITATION_SELECT} WHERE code_hash = ? LIMIT 1`,
+      [codeHash]
+    );
+    const row = rows[0];
+    return row ? mapInvitationSqlRow(row) : null;
+  }
+
+  /**
+   * Lists all invitations ordered by creation time descending.
+   */
+  async listInvitations(): Promise<InvitationRecord[]> {
+    const rows = await this.queryRows<InvitationSqlRow & RowDataPacket>(
+      `${INVITATION_SELECT} ORDER BY created_at DESC`
+    );
+    return rows.map(mapInvitationSqlRow);
+  }
+
+  /**
+   * Revokes a pending invitation by id.
+   *
+   * @param id - Invitation identifier to revoke.
+   * @param actingUserId - User performing the revoke action.
+   */
+  async revokeInvitation(id: string, actingUserId: string): Promise<boolean> {
+    const now = new Date();
+    const result = await this.executeStatement(
+      `UPDATE user_invitations
+      SET revoked_at = ?,
+        updated_by_user_id = ?
+      WHERE id = ?
+        AND redeemed_at IS NULL
+        AND revoked_at IS NULL
+        AND expires_at > ?`,
+      [now, actingUserId, id, now]
+    );
+
+    const revoked = (result.affectedRows ?? 0) > 0;
+    if (revoked) {
+      await this.recordAuditEntry(actingUserId, 'update', 'invitation', id);
+    }
+
+    return revoked;
+  }
+
+  /**
+   * Atomically consumes a pending invitation and issues a permanent API token.
+   *
+   * @param codeHash - sha256 hex digest of the invitation secret.
+   * @param tokenName - Label stored on the newly created API token.
+   * @param actingUserId - Internal user attributed with the redemption action.
+   */
+  async redeemInvitation(
+    codeHash: string,
+    tokenName: string,
+    actingUserId: string
+  ): Promise<RedeemedInvitationResult> {
+    const now = new Date();
+    const connection = await this.requirePool().getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const [updateResult] = await connection.execute<ResultSetHeader>(
+        `UPDATE user_invitations
+        SET redeemed_at = ?,
+          updated_by_user_id = ?
+        WHERE code_hash = ?
+          AND redeemed_at IS NULL
+          AND revoked_at IS NULL
+          AND expires_at > ?`,
+        [now, actingUserId, codeHash, now]
+      );
+
+      if ((updateResult.affectedRows ?? 0) === 0) {
+        const [existingRows] = await connection.execute<(InvitationSqlRow & RowDataPacket)[]>(
+          `${INVITATION_SELECT} WHERE code_hash = ? LIMIT 1`,
+          [codeHash]
+        );
+        const existingRow = existingRows[0];
+        if (!existingRow) {
+          throw new InvitationUnavailableError('not_found');
+        }
+
+        const existing = mapInvitationSqlRow(existingRow);
+        if (existing.redeemedAt) {
+          throw new InvitationUnavailableError('redeemed');
+        }
+
+        if (existing.revokedAt) {
+          throw new InvitationUnavailableError('revoked');
+        }
+
+        throw new InvitationUnavailableError('expired');
+      }
+
+      const [rows] = await connection.execute<(InvitationSqlRow & RowDataPacket)[]>(
+        `${INVITATION_SELECT} WHERE code_hash = ? LIMIT 1`,
+        [codeHash]
+      );
+      const invitationRow = rows[0];
+      if (!invitationRow) {
+        throw new Error('Invitation not found after claim');
+      }
+
+      const invitation = mapInvitationSqlRow(invitationRow);
+      const [userRows] = await connection.execute<(UserSqlRow & RowDataPacket)[]>(
+        `${USER_SELECT} WHERE id = ? LIMIT 1`,
+        [invitation.userId]
+      );
+      const userRow = userRows[0];
+      if (!userRow) {
+        throw new Error('User not found');
+      }
+
+      const user = mapUserSqlRow(userRow);
+      const { record, secret } = generateApiToken(user.id, tokenName);
+
+      await connection.execute(
+        `INSERT INTO api_tokens (
+          id,
+          user_id,
+          name,
+          token_hash,
+          token_prefix,
+          created_at,
+          last_used_at,
+          revoked_at,
+          created_by_user_id,
+          updated_by_user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          record.id,
+          record.userId,
+          record.name,
+          record.tokenHash,
+          record.tokenPrefix,
+          record.createdAt,
+          record.lastUsedAt,
+          record.revokedAt,
+          actingUserId,
+          actingUserId
+        ]
+      );
+
+      await connection.commit();
+
+      await this.recordAuditEntry(actingUserId, 'update', 'invitation', invitation.id);
+      await this.recordAuditEntry(actingUserId, 'create', 'api_token', record.id);
+
+      return { user, token: record, secret };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
   /**

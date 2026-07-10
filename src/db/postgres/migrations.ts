@@ -343,6 +343,26 @@ CREATE INDEX IF NOT EXISTS run_results_created_idx ON run_results (created_at DE
 `.trim();
 
 /**
+ * SQL migration creating the user_invitations table for onboarding links.
+ */
+export const USER_INVITATIONS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS user_invitations (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash CHAR(64) NOT NULL UNIQUE,
+  code_prefix TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  redeemed_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL,
+  created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  updated_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS user_invitations_user_id_idx ON user_invitations (user_id);
+CREATE INDEX IF NOT EXISTS user_invitations_expires_at_idx ON user_invitations (expires_at);
+`.trim();
+
+/**
  * Ordered Postgres migrations applied by {@link PostgresDatabase.migrate}.
  */
 export const POSTGRES_MIGRATIONS = [
@@ -371,5 +391,6 @@ export const POSTGRES_MIGRATIONS = [
   ENVIRONMENTS_DELETION_LOCKED_MIGRATION_SQL,
   USERS_SNIPPET_ACCESS_MIGRATION_SQL,
   USERS_SNIPPET_ACCESS_BACKFILL_SQL,
-  RUN_RESULTS_MIGRATION_SQL
+  RUN_RESULTS_MIGRATION_SQL,
+  USER_INVITATIONS_MIGRATION_SQL
 ];

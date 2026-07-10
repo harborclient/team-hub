@@ -6,6 +6,7 @@ import type { IDatabase } from '#/db/IDatabase.js';
 import type { IThrottleStore } from '#/server/auth/throttle/IThrottleStore.js';
 import { registerAdminRoutes } from '#/server/routes/admin.js';
 import { registerAuthRoutes } from '#/server/routes/auth.js';
+import { registerInvitationRoutes } from '#/server/routes/invitations.js';
 import { registerCollectionRoutes } from '#/server/routes/collections.js';
 import { registerEnvironmentRoutes } from '#/server/routes/environments.js';
 import { registerSnippetRoutes } from '#/server/routes/snippets.js';
@@ -66,9 +67,13 @@ export interface RegisterRoutesOptions {
  */
 export async function registerPublicRoutes(
   app: FastifyInstance,
-  options: Pick<RegisterRoutesOptions, 'version'>
+  options: Pick<RegisterRoutesOptions, 'version' | 'db' | 'throttleStore'>
 ): Promise<void> {
   await registerHealthRoute(app, options.version);
+  await registerInvitationRoutes(app, {
+    db: options.db,
+    throttleStore: options.throttleStore
+  });
 }
 
 /**

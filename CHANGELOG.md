@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add user onboarding invitation management functionality. (`801d6f5`)
 - Update Dockerfile to install ca-certificates along with curl. (`f47adf6`)
 
 ## 0.4.3 - 2026-07-09

@@ -5,6 +5,7 @@ import type {
   CollectionRecord,
   EnvironmentRecord,
   FolderRecord,
+  InvitationRecord,
   SnippetRecord,
   LlmUsageRecord,
   LlmUsageLogRecord,
@@ -17,6 +18,7 @@ import type {
   FirestoreAuditLogDocument,
   FirestoreCollectionDocument,
   FirestoreEnvironmentDocument,
+  FirestoreInvitationDocument,
   FirestoreSnippetDocument,
   FirestoreFolderDocument,
   FirestoreLlmUsageDocument,
@@ -37,6 +39,7 @@ function parseAuditEntityType(value: string): AuditEntityType {
   if (
     value === 'user' ||
     value === 'api_token' ||
+    value === 'invitation' ||
     value === 'collection' ||
     value === 'environment' ||
     value === 'snippet' ||
@@ -48,6 +51,31 @@ function parseAuditEntityType(value: string): AuditEntityType {
   }
 
   throw new Error(`Invalid audit entity type: ${value}`);
+}
+
+/**
+ * Maps a Firestore document to the shared {@link InvitationRecord} shape.
+ *
+ * @param id - Document identifier.
+ * @param data - Stored invitation fields.
+ * @returns Normalized invitation record for application code.
+ */
+export function mapFirestoreInvitation(
+  id: string,
+  data: FirestoreInvitationDocument
+): InvitationRecord {
+  return {
+    id,
+    userId: data.userId,
+    codeHash: data.codeHash,
+    codePrefix: data.codePrefix,
+    expiresAt: data.expiresAt,
+    redeemedAt: data.redeemedAt,
+    revokedAt: data.revokedAt,
+    createdAt: data.createdAt,
+    createdByUserId: data.createdByUserId ?? null,
+    updatedByUserId: data.updatedByUserId ?? null
+  };
 }
 
 /**

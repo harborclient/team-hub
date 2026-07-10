@@ -4,10 +4,13 @@ import type {
   CollectionRecord,
   CreateRunResultInput,
   CreateUserInput,
+  CreatedInvitedUserResult,
   EnvironmentRecord,
   FolderRecord,
+  InvitationRecord,
   KeyValue,
   ListAuditLogOptions,
+  RedeemedInvitationResult,
   SaveRequestInput,
   SavedRequestRecord,
   SnippetRecord,
@@ -171,6 +174,73 @@ export interface IDatabase {
    * @param when - Timestamp of the authenticated request.
    */
   touchApiTokenLastUsed(id: string, when: Date): Promise<void>;
+
+  /**
+   * Creates a user account and its initial onboarding invitation in one transaction.
+   *
+   * @param userId - Pre-generated stable identifier for the new user.
+   * @param input - User fields to persist.
+   * @param invitation - Invitation metadata including the stored code hash.
+   * @param actingUserId - User performing the create action.
+   * @returns The created user and invitation records.
+   */
+  createInvitedUser(
+    userId: string,
+    input: CreateUserInput,
+    invitation: InvitationRecord,
+    actingUserId: string
+  ): Promise<CreatedInvitedUserResult>;
+
+  /**
+   * Persists a new onboarding invitation for an existing user account.
+   *
+   * @param invitation - Invitation metadata including the stored code hash.
+   * @param actingUserId - User performing the create action.
+   * @returns The persisted invitation record.
+   */
+  createInvitation(invitation: InvitationRecord, actingUserId: string): Promise<InvitationRecord>;
+
+  /**
+   * Finds an invitation by stable identifier.
+   *
+   * @param id - Invitation identifier to look up.
+   */
+  findInvitationById(id: string): Promise<InvitationRecord | null>;
+
+  /**
+   * Finds an invitation by the sha256 hash of its secret.
+   *
+   * @param codeHash - sha256 hex digest of the invitation secret.
+   */
+  findInvitationByCodeHash(codeHash: string): Promise<InvitationRecord | null>;
+
+  /**
+   * Lists all invitations ordered by creation time descending.
+   */
+  listInvitations(): Promise<InvitationRecord[]>;
+
+  /**
+   * Revokes a pending invitation by id.
+   *
+   * @param id - Invitation identifier to revoke.
+   * @param actingUserId - User performing the revoke action.
+   * @returns True when a pending invitation was revoked; false when missing or already consumed.
+   */
+  revokeInvitation(id: string, actingUserId: string): Promise<boolean>;
+
+  /**
+   * Atomically consumes a pending invitation and issues a permanent API token.
+   *
+   * @param codeHash - sha256 hex digest of the invitation secret.
+   * @param tokenName - Label stored on the newly created API token.
+   * @param actingUserId - Internal user attributed with the redemption action.
+   * @returns The owning user, new token metadata, and one-time bearer secret.
+   */
+  redeemInvitation(
+    codeHash: string,
+    tokenName: string,
+    actingUserId: string
+  ): Promise<RedeemedInvitationResult>;
 
   /**
    * Lists all collections ordered by name.

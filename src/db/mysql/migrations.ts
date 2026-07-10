@@ -369,6 +369,29 @@ CREATE TABLE IF NOT EXISTS run_results (
 `.trim();
 
 /**
+ * DDL for creating the user_invitations table when absent.
+ */
+export const USER_INVITATIONS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS user_invitations (
+  id VARCHAR(36) PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL,
+  code_hash CHAR(64) NOT NULL UNIQUE,
+  code_prefix VARCHAR(32) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  redeemed_at DATETIME,
+  revoked_at DATETIME,
+  created_at DATETIME NOT NULL,
+  created_by_user_id VARCHAR(36),
+  updated_by_user_id VARCHAR(36),
+  INDEX user_invitations_user_id_idx (user_id),
+  INDEX user_invitations_expires_at_idx (expires_at),
+  CONSTRAINT user_invitations_user_id_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT user_invitations_created_by_fk FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT user_invitations_updated_by_fk FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+)
+`.trim();
+
+/**
  * Ordered MySQL migrations applied by {@link MysqlDatabase.migrate}.
  */
 export const MYSQL_MIGRATIONS = [
@@ -397,5 +420,6 @@ export const MYSQL_MIGRATIONS = [
   ENVIRONMENTS_DELETION_LOCKED_MIGRATION_SQL,
   USERS_SNIPPET_ACCESS_MIGRATION_SQL,
   USERS_SNIPPET_ACCESS_BACKFILL_SQL,
-  RUN_RESULTS_MIGRATION_SQL
+  RUN_RESULTS_MIGRATION_SQL,
+  USER_INVITATIONS_MIGRATION_SQL
 ];

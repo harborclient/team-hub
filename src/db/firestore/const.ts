@@ -9,6 +9,11 @@ export const USERS_COLLECTION = 'users';
 export const API_TOKENS_COLLECTION = 'apiTokens';
 
 /**
+ * Firestore collection name for user onboarding invitation documents.
+ */
+export const INVITATIONS_COLLECTION = 'invitations';
+
+/**
  * Firestore collection name for shared collection documents.
  */
 export const COLLECTIONS_COLLECTION = 'collections';

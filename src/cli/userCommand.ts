@@ -1,10 +1,16 @@
 import { Command, InvalidArgumentError } from 'commander';
+import { randomUUID } from 'node:crypto';
 import { mergeGlobalOptions } from '#/cli/globalOptions.js';
 import { loadServerConfig } from '#/config/serverConfig.js';
 import type { LlmConfig } from '#/config/llmConfig.js';
 import { createDatabase } from '#/db/index.js';
 import type { ApiTokenRecord, UpdateUserInput, UserRole } from '#/db/types.js';
 import { generateApiToken } from '#/server/auth/apiTokens.js';
+import {
+  generateInvitation,
+  resolveInvitationExpiresAt
+} from '#/server/auth/invitations.js';
+import { getInvitationStatus } from '#/db/invitationRows.js';
 import {
   buildAccessCatalogIds,
   buildAccessListWarnings,
@@ -257,6 +263,22 @@ function parseMonthlyTokenLimit(value: string): number {
 }
 
 /**
+ * Parses a positive integer from CLI input.
+ *
+ * @param value - Integer string from a Commander option.
+ * @returns Parsed positive integer.
+ * @throws {InvalidArgumentError} When the value is not a positive integer.
+ */
+function parsePositiveInt(value: string): number {
+  const parsed = Number(value.trim());
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new InvalidArgumentError('Value must be a positive integer.');
+  }
+
+  return parsed;
+}
+
+/**
  * Optional monthly LLM usage fields for CLI user listings.
  */
 interface UserDisplayUsage {
@@ -452,6 +474,156 @@ export async function userCreateCommand(options: UserCreateCommandOptions): Prom
   printUser(user);
   console.log('');
   printCreatedApiToken(user, record, secret);
+}
+
+export interface UserInviteCreateCommandOptions extends UserCreateCommandOptions {
+  /**
+   * Optional invitation lifetime in hours; defaults to 24 when omitted.
+   */
+  expiresInHours?: number;
+}
+
+export interface UserInviteRevokeCommandOptions extends UserCommandOptions {
+  /**
+   * Invitation identifier to revoke.
+   */
+  id: string;
+}
+
+/**
+ * Prints a newly created invitation and its one-time secret for CLI output.
+ *
+ * @param user - Invited user account.
+ * @param invitation - Persisted invitation metadata.
+ * @param secret - Plaintext invitation secret shown once at creation.
+ */
+function printCreatedInvitation(
+  user: { name: string; id: string },
+  invitation: { id: string; codePrefix: string; expiresAt: Date },
+  secret: string
+): void {
+  console.log(`Created invitation (${invitation.id}) for user "${user.name}" (${user.id}).`);
+  console.log(`Invitation prefix: ${invitation.codePrefix}`);
+  console.log(`Expires: ${invitation.expiresAt.toISOString()}`);
+  console.log('');
+  console.log('Store this invitation secret now; it will not be shown again:');
+  console.log(secret);
+}
+
+/**
+ * Creates a new user account with an onboarding invitation instead of an API token.
+ *
+ * @param options - Parsed invite create options.
+ */
+export async function userInviteCreateCommand(
+  options: UserInviteCreateCommandOptions
+): Promise<void> {
+  const config = loadServerConfig(options.config);
+  const db = createDatabase(config.db);
+  const access = mapValidationError(() =>
+    normalizeAccessForRole(
+      options.role,
+      options.collectionAccess,
+      options.environmentAccess,
+      options.snippetAccess
+    )
+  );
+
+  await db.connect();
+  const actingUserId = await requireSystemUserId(db);
+  const catalogs = await loadAccessCatalogs(db, config.llm);
+  const llmModels = readLlmModelsOption(options);
+  const llm = mapValidationError(() =>
+    normalizeLlmForRole(options.role, options.llmAccess ?? false, llmModels)
+  );
+  validateSubmittedAccessListsOrThrow(
+    {
+      role: options.role,
+      collectionAccess: access.collectionAccess,
+      environmentAccess: access.environmentAccess,
+      snippetAccess: access.snippetAccess,
+      llmModels
+    },
+    catalogs
+  );
+
+  const userId = randomUUID();
+  const expiresAt = resolveInvitationExpiresAt(options.expiresInHours);
+  const { record: invitation, secret } = generateInvitation(userId, actingUserId, expiresAt);
+  const created = await db.createInvitedUser(
+    userId,
+    {
+      name: options.name,
+      role: options.role,
+      collectionAccess: access.collectionAccess ?? [],
+      environmentAccess: access.environmentAccess ?? [],
+      snippetAccess: access.snippetAccess ?? [],
+      llmAccess: llm.llmAccess,
+      llmModels: llm.llmModels,
+      llmMonthlyTokenLimit: options.llmMonthlyTokens ?? null
+    },
+    invitation,
+    actingUserId
+  );
+  await db.disconnect();
+
+  console.log(
+    `Created invited user "${created.user.name}" (${created.user.id}) with role ${created.user.role}.`
+  );
+  printUser(created.user);
+  console.log('');
+  printCreatedInvitation(created.user, created.invitation, secret);
+}
+
+/**
+ * Lists stored onboarding invitations.
+ *
+ * @param options - Parsed user command options including config path.
+ */
+export async function userInviteListCommand(options: UserCommandOptions): Promise<void> {
+  const config = loadServerConfig(options.config);
+  const db = createDatabase(config.db);
+
+  await db.connect();
+  const [invitations, users] = await Promise.all([db.listInvitations(), db.listUsers()]);
+  await db.disconnect();
+
+  if (invitations.length === 0) {
+    console.log('No invitations found.');
+    return;
+  }
+
+  const usersById = new Map(users.map((user) => [user.id, user.name]));
+
+  for (const invitation of invitations) {
+    const userName = usersById.get(invitation.userId) ?? invitation.userId;
+    console.log(`${invitation.id}  ${userName}  ${invitation.codePrefix}  ${getInvitationStatus(invitation)}`);
+    console.log(`  expires: ${invitation.expiresAt.toISOString()}`);
+  }
+}
+
+/**
+ * Revokes a pending onboarding invitation by id.
+ *
+ * @param options - Parsed invite revoke options including invitation id.
+ */
+export async function userInviteRevokeCommand(
+  options: UserInviteRevokeCommandOptions
+): Promise<void> {
+  const config = loadServerConfig(options.config);
+  const db = createDatabase(config.db);
+
+  await db.connect();
+  const actingUserId = await requireSystemUserId(db);
+  const revoked = await db.revokeInvitation(options.id, actingUserId);
+  await db.disconnect();
+
+  if (revoked) {
+    console.log(`Revoked invitation ${options.id}.`);
+    return;
+  }
+
+  console.log(`No pending invitation found with id ${options.id}.`);
 }
 
 /**
@@ -717,9 +889,77 @@ export function registerUserCommand(
     tokenCreate?: (options: UserTokenCreateCommandOptions) => Promise<void>;
     tokenList?: (options: UserTokenListCommandOptions) => Promise<void>;
     tokenRevoke?: (options: UserTokenRevokeCommandOptions) => Promise<void>;
+    inviteCreate?: (options: UserInviteCreateCommandOptions) => Promise<void>;
+    inviteList?: (options: UserCommandOptions) => Promise<void>;
+    inviteRevoke?: (options: UserInviteRevokeCommandOptions) => Promise<void>;
   } = {}
 ): void {
   const user = program.command('user').description('Manage user accounts and their API tokens');
+
+  const invite = user.command('invite').description('Manage onboarding invitations for user accounts');
+
+  invite
+    .command('create')
+    .description('Create a user account with a single-use onboarding invitation')
+    .requiredOption('--name <name>', 'Unique display name', parseRequiredName)
+    .requiredOption('--role <role>', 'Account role (admin or user)', parseUserRole)
+    .option(
+      '--collection-access <id>',
+      'Collection id or * (repeatable)',
+      parseAccessFlag,
+      [] as string[]
+    )
+    .option(
+      '--environment-access <id>',
+      'Environment id or * (repeatable)',
+      parseAccessFlag,
+      [] as string[]
+    )
+    .option(
+      '--snippet-access <id>',
+      'Snippet id or * (repeatable)',
+      parseAccessFlag,
+      [] as string[]
+    )
+    .option('--llm-access', 'Enable hub-proxied LLM access for the user')
+    .option('--llm-model <id>', 'LLM model id or * (repeatable)', parseAccessFlag, [] as string[])
+    .option('--llm-monthly-tokens <count>', 'Monthly LLM token limit', parseMonthlyTokenLimit)
+    .option('--expires-in-hours <hours>', 'Invitation lifetime in hours', parsePositiveInt)
+    .action(
+      /**
+       * Runs the user invite create subcommand after merging global CLI options.
+       */
+      async function userInviteCreateAction(this: Command, options: UserInviteCreateCommandOptions) {
+        await (handlers.inviteCreate ?? userInviteCreateCommand)(mergeGlobalOptions(this, options));
+      }
+    );
+
+  invite
+    .command('list')
+    .description('List stored onboarding invitations')
+    .action(
+      /**
+       * Runs the user invite list subcommand after merging global CLI options.
+       */
+      async function userInviteListAction(this: Command, options: UserCommandOptions) {
+        await (handlers.inviteList ?? userInviteListCommand)(mergeGlobalOptions(this, options));
+      }
+    );
+
+  invite
+    .command('revoke')
+    .description('Revoke a pending onboarding invitation by id')
+    .argument('<id>', 'Invitation identifier to revoke')
+    .action(
+      /**
+       * Runs the user invite revoke subcommand after merging global CLI options.
+       */
+      async function userInviteRevokeAction(this: Command, id: string, options: UserCommandOptions) {
+        await (handlers.inviteRevoke ?? userInviteRevokeCommand)(
+          mergeGlobalOptions(this, { ...options, id })
+        );
+      }
+    );
 
   user
     .command('create')
