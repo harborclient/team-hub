@@ -14,12 +14,14 @@ import {
 import { BOOTSTRAP_USER_NAME } from '#/db/bootstrapUsers.js';
 import {
   mapCollectionSqlRow,
+  mapDocumentSqlRow,
   mapEnvironmentSqlRow,
   mapFolderSqlRow,
   mapRequestSqlRow,
   mapRunResultSqlRow,
   mapSnippetSqlRow,
   type CollectionSqlRow,
+  type DocumentSqlRow,
   type EnvironmentSqlRow,
   type FolderSqlRow,
   type RequestSqlRow,
@@ -38,6 +40,7 @@ import {
   API_TOKEN_SELECT_COLUMNS,
   AUDIT_LOG_SELECT_COLUMNS,
   COLLECTION_SELECT_COLUMNS,
+  DOCUMENT_SELECT_COLUMNS,
   ENVIRONMENT_SELECT_COLUMNS,
   FOLDER_SELECT_COLUMNS,
   mapUserSqlRow,
@@ -77,8 +80,10 @@ import type {
   LlmUsageRecord,
   RedeemedInvitationResult,
   RunResultRecord,
+  SaveDocumentInput,
   SaveRequestInput,
   SavedRequestRecord,
+  DocumentRecord,
   SnippetRecord,
   SnippetScope,
   UpdateUserInput,
@@ -100,6 +105,7 @@ const USER_SELECT = `SELECT ${USER_SELECT_COLUMNS} FROM users`;
 const API_TOKEN_SELECT = `SELECT ${API_TOKEN_SELECT_COLUMNS} FROM api_tokens`;
 const FOLDER_SELECT = `SELECT ${FOLDER_SELECT_COLUMNS} FROM folders`;
 const REQUEST_SELECT = `SELECT ${REQUEST_SELECT_COLUMNS} FROM requests`;
+const DOCUMENT_SELECT = `SELECT ${DOCUMENT_SELECT_COLUMNS} FROM documents`;
 const LLM_USAGE_SELECT = `SELECT ${LLM_USAGE_SELECT_COLUMNS} FROM llm_usage`;
 const LLM_USAGE_LOG_SELECT = `SELECT ${LLM_USAGE_LOG_SELECT_COLUMNS} FROM llm_usage_log`;
 
@@ -1688,6 +1694,7 @@ export class PostgresDatabase implements IDatabase {
     const client = await this.requirePool().connect();
     try {
       await client.query('BEGIN');
+      await client.query('DELETE FROM documents WHERE folder_id = $1', [id]);
       await client.query('DELETE FROM requests WHERE folder_id = $1', [id]);
       await client.query('DELETE FROM folders WHERE id = $1', [id]);
       await client.query('COMMIT');
@@ -1888,6 +1895,294 @@ export class PostgresDatabase implements IDatabase {
     }
 
     await this.recordAuditEntry(actingUserId, 'move', 'request', requestId, {
+      folderId,
+      index
+    });
+  }
+
+  /**
+   * Lists all documents in a collection.
+   *
+   * @param collectionId - Collection to query.
+   */
+  async listDocuments(collectionId: string): Promise<DocumentRecord[]> {
+    const result = await this.query<DocumentSqlRow>(
+      `${DOCUMENT_SELECT} WHERE collection_id = $1 ORDER BY sort_order ASC, name ASC`,
+      [collectionId]
+    );
+    return result.rows.map(mapDocumentSqlRow);
+  }
+
+  /**
+   * Finds a document by id.
+   *
+   * @param id - Document identifier to look up.
+   */
+  async findDocumentById(id: string): Promise<DocumentRecord | null> {
+    const result = await this.query<DocumentSqlRow>(`${DOCUMENT_SELECT} WHERE id = $1 LIMIT 1`, [
+      id
+    ]);
+    const row = result.rows[0];
+    return row ? mapDocumentSqlRow(row) : null;
+  }
+
+  /**
+   * Inserts a new document or updates an existing one.
+   *
+   * @param input - Document fields to persist.
+   * @param actingUserId - User performing the save action.
+   */
+  async saveDocument(input: SaveDocumentInput, actingUserId: string): Promise<DocumentRecord> {
+    const trimmedName = trimRequiredName(input.name, 'Document name');
+    const folderId = input.folderId ?? null;
+    const now = new Date();
+
+    if (folderId != null) {
+      const folderResult = await this.query<{ collection_id: string }>(
+        'SELECT collection_id FROM folders WHERE id = $1',
+        [folderId]
+      );
+      const folderRow = folderResult.rows[0];
+      if (!folderRow || folderRow.collection_id !== input.collectionId) {
+        throw new Error('Folder not found');
+      }
+    }
+
+    if (input.id) {
+      const result = await this.query(
+        `UPDATE documents SET
+          collection_id = $1,
+          folder_id = $2,
+          name = $3,
+          content = $4,
+          updated_at = $5,
+          updated_by_user_id = $6
+        WHERE id = $7`,
+        [input.collectionId, folderId, trimmedName, input.content, now, actingUserId, input.id]
+      );
+
+      if ((result.rowCount ?? 0) > 0) {
+        await this.recordAuditEntry(actingUserId, 'update', 'document', input.id);
+
+        const selectResult = await this.query<DocumentSqlRow>(`${DOCUMENT_SELECT} WHERE id = $1`, [
+          input.id
+        ]);
+        const row = selectResult.rows[0];
+        if (row) {
+          return mapDocumentSqlRow(row);
+        }
+      }
+    }
+
+    const maxResult = await this.query<{ max_order: number | null }>(
+      `SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM documents
+       WHERE collection_id = $1
+         AND (($2::text IS NULL AND folder_id IS NULL) OR folder_id = $2)`,
+      [input.collectionId, folderId]
+    );
+    const maxOrder = maxResult.rows[0]?.max_order ?? -1;
+    const id = randomUUID();
+
+    const result = await this.query<DocumentSqlRow>(
+      `INSERT INTO documents (
+        id,
+        collection_id,
+        folder_id,
+        name,
+        content,
+        sort_order,
+        created_at,
+        updated_at,
+        created_by_user_id,
+        updated_by_user_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING ${DOCUMENT_SELECT_COLUMNS}`,
+      [
+        id,
+        input.collectionId,
+        folderId,
+        trimmedName,
+        input.content,
+        maxOrder + 1,
+        now,
+        now,
+        actingUserId,
+        actingUserId
+      ]
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error('Document not found after insert');
+    }
+
+    await this.recordAuditEntry(actingUserId, 'create', 'document', id);
+
+    return mapDocumentSqlRow(row);
+  }
+
+  /**
+   * Deletes a document by ID.
+   *
+   * @param id - Document ID to delete.
+   * @param actingUserId - User performing the delete action.
+   */
+  async deleteDocument(id: string, actingUserId: string): Promise<void> {
+    await this.recordAuditEntry(actingUserId, 'delete', 'document', id);
+    await this.query('DELETE FROM documents WHERE id = $1', [id]);
+  }
+
+  /**
+   * Reorders documents within a folder or at collection root.
+   *
+   * @param actingUserId - User performing the reorder action.
+   */
+  async reorderDocuments(
+    collectionId: string,
+    folderId: string | null,
+    orderedDocumentIds: string[],
+    actingUserId: string
+  ): Promise<void> {
+    const client = await this.requirePool().connect();
+    const updatedAt = new Date();
+    try {
+      await client.query('BEGIN');
+      for (let index = 0; index < orderedDocumentIds.length; index++) {
+        await client.query(
+          `UPDATE documents
+          SET sort_order = $1,
+            folder_id = $2,
+            updated_at = $3,
+            updated_by_user_id = $4
+          WHERE id = $5 AND collection_id = $6`,
+          [index, folderId, updatedAt, actingUserId, orderedDocumentIds[index], collectionId]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await this.recordAuditEntry(actingUserId, 'reorder', 'document', collectionId, {
+      folderId,
+      orderedDocumentIds
+    });
+  }
+
+  /**
+   * Moves a document to another folder or collection root at a given index.
+   *
+   * @param actingUserId - User performing the move action.
+   */
+  async moveDocument(
+    documentId: string,
+    folderId: string | null,
+    index: number,
+    actingUserId: string
+  ): Promise<void> {
+    const client = await this.requirePool().connect();
+    const updatedAt = new Date();
+
+    /**
+     * Lists document ids in a container ordered for reindexing.
+     *
+     * @param collectionId - Collection to query.
+     * @param targetFolderId - Folder id or null for collection root.
+     */
+    const listInContainer = async (
+      collectionId: string,
+      targetFolderId: string | null
+    ): Promise<string[]> => {
+      const result = await client.query<{ id: string }>(
+        `SELECT id FROM documents WHERE collection_id = $1
+         AND (($2::text IS NULL AND folder_id IS NULL) OR folder_id = $2)
+         ORDER BY sort_order ASC, name ASC`,
+        [collectionId, targetFolderId]
+      );
+      return result.rows.map((row) => row.id);
+    };
+
+    /**
+     * Rewrites sort_order and folder_id for a container's document list.
+     *
+     * @param targetFolderId - Folder id or null for collection root.
+     * @param orderedIds - Document ids in desired order.
+     */
+    const reindexContainer = async (
+      targetFolderId: string | null,
+      orderedIds: string[]
+    ): Promise<void> => {
+      for (let sortIndex = 0; sortIndex < orderedIds.length; sortIndex++) {
+        await client.query(
+          `UPDATE documents
+          SET sort_order = $1,
+            folder_id = $2,
+            updated_at = $3,
+            updated_by_user_id = $4
+          WHERE id = $5`,
+          [sortIndex, targetFolderId, updatedAt, actingUserId, orderedIds[sortIndex]]
+        );
+      }
+    };
+
+    try {
+      await client.query('BEGIN');
+
+      const documentResult = await client.query<DocumentSqlRow>(
+        `${DOCUMENT_SELECT} WHERE id = $1`,
+        [documentId]
+      );
+      const documentRow = documentResult.rows[0];
+      if (!documentRow) {
+        throw new Error('Document not found');
+      }
+
+      const document = mapDocumentSqlRow(documentRow);
+      const collectionId = document.collectionId;
+      const oldFolderId = document.folderId;
+
+      if (folderId != null) {
+        const folderResult = await client.query<{ collection_id: string }>(
+          'SELECT collection_id FROM folders WHERE id = $1',
+          [folderId]
+        );
+        const folderRow = folderResult.rows[0];
+        if (!folderRow || folderRow.collection_id !== collectionId) {
+          throw new Error('Folder not found');
+        }
+      }
+
+      if (oldFolderId === folderId) {
+        const siblings = (await listInContainer(collectionId, folderId)).filter(
+          (id) => id !== documentId
+        );
+        siblings.splice(index, 0, documentId);
+        await reindexContainer(folderId, siblings);
+      } else {
+        const oldIds = (await listInContainer(collectionId, oldFolderId)).filter(
+          (id) => id !== documentId
+        );
+        await reindexContainer(oldFolderId, oldIds);
+
+        const newIds = (await listInContainer(collectionId, folderId)).filter(
+          (id) => id !== documentId
+        );
+        newIds.splice(index, 0, documentId);
+        await reindexContainer(folderId, newIds);
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await this.recordAuditEntry(actingUserId, 'move', 'document', documentId, {
       folderId,
       index
     });

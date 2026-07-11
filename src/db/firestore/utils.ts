@@ -11,6 +11,7 @@ import type {
   LlmUsageLogRecord,
   RunResultRecord,
   SavedRequestRecord,
+  DocumentRecord,
   UserRecord
 } from '#/db/types.js';
 import type {
@@ -24,6 +25,7 @@ import type {
   FirestoreLlmUsageDocument,
   FirestoreLlmUsageLogDocument,
   FirestoreRequestDocument,
+  FirestoreDocumentDocument,
   FirestoreRunResultDocument,
   FirestoreUserDocument
 } from '#/db/firestore/types.js';
@@ -45,6 +47,7 @@ function parseAuditEntityType(value: string): AuditEntityType {
     value === 'snippet' ||
     value === 'folder' ||
     value === 'request' ||
+    value === 'document' ||
     value === 'run_result'
   ) {
     return value;
@@ -294,6 +297,28 @@ export function mapFirestoreRequest(
     preRequestScript: data.preRequestScript,
     postRequestScript: data.postRequestScript,
     comment: data.comment,
+    sortOrder: data.sortOrder,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    createdByUserId: data.createdByUserId ?? null,
+    updatedByUserId: data.updatedByUserId ?? null
+  };
+}
+
+/**
+ * Maps a Firestore document to the shared {@link DocumentRecord} shape.
+ *
+ * @param id - Document identifier.
+ * @param data - Stored collection document fields.
+ * @returns Normalized document record for application code.
+ */
+export function mapFirestoreDocument(id: string, data: FirestoreDocumentDocument): DocumentRecord {
+  return {
+    id,
+    collectionId: data.collectionId,
+    folderId: data.folderId,
+    name: data.name,
+    content: data.content,
     sortOrder: data.sortOrder,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,

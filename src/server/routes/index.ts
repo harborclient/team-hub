@@ -11,6 +11,7 @@ import { registerCollectionRoutes } from '#/server/routes/collections.js';
 import { registerEnvironmentRoutes } from '#/server/routes/environments.js';
 import { registerSnippetRoutes } from '#/server/routes/snippets.js';
 import { registerFolderRoutes } from '#/server/routes/folders.js';
+import { registerDocumentRoutes } from '#/server/routes/documents.js';
 import { registerHealthRoute } from '#/server/routes/health.js';
 import { registerJoinRoute } from '#/server/routes/join.js';
 import { registerRequestRoutes } from '#/server/routes/requests.js';
@@ -102,6 +103,7 @@ export async function registerProtectedRoutes(
   await registerSnippetRoutes(app, options.db);
   await registerFolderRoutes(app, options.db);
   await registerRequestRoutes(app, options.db);
+  await registerDocumentRoutes(app, options.db);
   await registerRunResultRoutes(app, options.db);
   await registerLlmRoutes(app, {
     db: options.db,

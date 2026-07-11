@@ -474,6 +474,56 @@ export interface FirestoreRequestDocument {
 }
 
 /**
+ * Firestore document shape for persisted collection documents.
+ */
+export interface FirestoreDocumentDocument {
+  /**
+   * Parent collection identifier.
+   */
+  collectionId: string;
+
+  /**
+   * Optional parent folder identifier.
+   */
+  folderId: string | null;
+
+  /**
+   * Display file name for the document.
+   */
+  name: string;
+
+  /**
+   * Markdown body content.
+   */
+  content: string;
+
+  /**
+   * Position within the collection or folder.
+   */
+  sortOrder: number;
+
+  /**
+   * When the document was created.
+   */
+  createdAt: Date;
+
+  /**
+   * When the document was last saved.
+   */
+  updatedAt: Date;
+
+  /**
+   * User who created the document.
+   */
+  createdByUserId: string | null;
+
+  /**
+   * User who last updated the document.
+   */
+  updatedByUserId: string | null;
+}
+
+/**
  * Firestore document shape for persisted audit log entries.
  */
 export interface FirestoreAuditLogDocument {

@@ -83,6 +83,7 @@ function parseAuditEntityType(value: string): AuditEntityType {
     value === 'snippet' ||
     value === 'folder' ||
     value === 'request' ||
+    value === 'document' ||
     value === 'run_result'
   ) {
     return value;

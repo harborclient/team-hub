@@ -7,6 +7,7 @@ import {
   API_TOKENS_COLLECTION,
   AUDIT_LOG_COLLECTION,
   COLLECTIONS_COLLECTION,
+  DOCUMENTS_COLLECTION,
   ENVIRONMENTS_COLLECTION,
   FOLDERS_COLLECTION,
   INVITATIONS_COLLECTION,
@@ -31,6 +32,7 @@ import type {
   FirestoreLlmUsageDocument,
   FirestoreLlmUsageLogDocument,
   FirestoreRequestDocument,
+  FirestoreDocumentDocument,
   FirestoreRunResultDocument,
   FirestoreSnippetDocument,
   FirestoreUserDocument
@@ -45,6 +47,7 @@ import {
   mapFirestoreLlmUsage,
   mapFirestoreLlmUsageLog,
   mapFirestoreRequest,
+  mapFirestoreDocument,
   mapFirestoreRunResult,
   mapFirestoreSnippet,
   mapFirestoreUser
@@ -74,8 +77,10 @@ import type {
   LlmUsageRecord,
   RedeemedInvitationResult,
   SaveRequestInput,
+  SaveDocumentInput,
   RunResultRecord,
   SavedRequestRecord,
+  DocumentRecord,
   SnippetRecord,
   SnippetScope,
   UpdateUserInput,
@@ -953,6 +958,10 @@ export class FirestoreDatabase implements IDatabase {
       .collection(REQUESTS_COLLECTION)
       .where('collectionId', '==', id)
       .get();
+    const documentsSnap = await client
+      .collection(DOCUMENTS_COLLECTION)
+      .where('collectionId', '==', id)
+      .get();
     const foldersSnap = await client
       .collection(FOLDERS_COLLECTION)
       .where('collectionId', '==', id)
@@ -960,6 +969,7 @@ export class FirestoreDatabase implements IDatabase {
 
     const refs = [
       ...requestsSnap.docs.map((requestDoc) => requestDoc.ref),
+      ...documentsSnap.docs.map((documentDoc) => documentDoc.ref),
       ...foldersSnap.docs.map((folderDoc) => folderDoc.ref),
       client.collection(COLLECTIONS_COLLECTION).doc(id)
     ];
@@ -1570,9 +1580,14 @@ export class FirestoreDatabase implements IDatabase {
       .collection(REQUESTS_COLLECTION)
       .where('folderId', '==', id)
       .get();
+    const documentsSnap = await client
+      .collection(DOCUMENTS_COLLECTION)
+      .where('folderId', '==', id)
+      .get();
 
     const refs = [
       ...requestsSnap.docs.map((requestDoc) => requestDoc.ref),
+      ...documentsSnap.docs.map((documentDoc) => documentDoc.ref),
       client.collection(FOLDERS_COLLECTION).doc(id)
     ];
 
@@ -1742,6 +1757,264 @@ export class FirestoreDatabase implements IDatabase {
     await reindexContainer(folderId, newIds);
 
     await this.recordAuditEntry(actingUserId, 'move', 'request', requestId, {
+      folderId,
+      index
+    });
+  }
+
+  /**
+   * Lists all documents in a collection.
+   *
+   * @param collectionId - Collection to query.
+   */
+  async listDocuments(collectionId: string): Promise<DocumentRecord[]> {
+    const snapshot = await this.requireClient()
+      .collection(DOCUMENTS_COLLECTION)
+      .where('collectionId', '==', collectionId)
+      .get();
+
+    return snapshot.docs
+      .map((doc) => mapFirestoreDocument(doc.id, doc.data() as FirestoreDocumentDocument))
+      .sort((left, right) => {
+        if (left.sortOrder !== right.sortOrder) {
+          return left.sortOrder - right.sortOrder;
+        }
+
+        return left.name.localeCompare(right.name);
+      });
+  }
+
+  /**
+   * Finds a document by id.
+   *
+   * @param id - Document identifier to look up.
+   */
+  async findDocumentById(id: string): Promise<DocumentRecord | null> {
+    const snapshot = await this.requireClient().collection(DOCUMENTS_COLLECTION).doc(id).get();
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    return mapFirestoreDocument(id, snapshot.data() as FirestoreDocumentDocument);
+  }
+
+  /**
+   * Inserts a new document or updates an existing one.
+   *
+   * @param input - Document fields to persist.
+   * @param actingUserId - User performing the save action.
+   */
+  async saveDocument(input: SaveDocumentInput, actingUserId: string): Promise<DocumentRecord> {
+    const trimmedName = trimRequiredName(input.name, 'Document name');
+    const folderId = input.folderId ?? null;
+    const now = new Date();
+    const client = this.requireClient();
+
+    if (folderId != null) {
+      const folderSnap = await client.collection(FOLDERS_COLLECTION).doc(folderId).get();
+      if (!folderSnap.exists) {
+        throw new Error('Folder not found');
+      }
+
+      const folder = folderSnap.data() as FirestoreFolderDocument;
+      if (folder.collectionId !== input.collectionId) {
+        throw new Error('Folder not found');
+      }
+    }
+
+    if (input.id) {
+      const docRef = client.collection(DOCUMENTS_COLLECTION).doc(input.id);
+      const snapshot = await docRef.get();
+      if (snapshot.exists) {
+        const existing = snapshot.data() as FirestoreDocumentDocument;
+        const updated: FirestoreDocumentDocument = {
+          ...existing,
+          collectionId: input.collectionId,
+          folderId,
+          name: trimmedName,
+          content: input.content,
+          updatedAt: now,
+          updatedByUserId: actingUserId
+        };
+
+        await docRef.update({
+          collectionId: input.collectionId,
+          folderId,
+          name: trimmedName,
+          content: input.content,
+          updatedAt: now,
+          updatedByUserId: actingUserId
+        });
+
+        await this.recordAuditEntry(actingUserId, 'update', 'document', input.id);
+        return mapFirestoreDocument(input.id, updated);
+      }
+    }
+
+    const existingDocuments = await this.listDocuments(input.collectionId);
+    const maxOrder = existingDocuments
+      .filter((document) => document.folderId === folderId)
+      .reduce((max, document) => Math.max(max, document.sortOrder), -1);
+    const id = randomUUID();
+    const data: FirestoreDocumentDocument = {
+      collectionId: input.collectionId,
+      folderId,
+      name: trimmedName,
+      content: input.content,
+      sortOrder: maxOrder + 1,
+      createdAt: now,
+      updatedAt: now,
+      createdByUserId: actingUserId,
+      updatedByUserId: actingUserId
+    };
+
+    await client.collection(DOCUMENTS_COLLECTION).doc(id).set(data);
+    await this.recordAuditEntry(actingUserId, 'create', 'document', id);
+    return mapFirestoreDocument(id, data);
+  }
+
+  /**
+   * Deletes a document by ID.
+   *
+   * @param id - Document ID to delete.
+   * @param actingUserId - User performing the delete action.
+   */
+  async deleteDocument(id: string, actingUserId: string): Promise<void> {
+    await this.recordAuditEntry(actingUserId, 'delete', 'document', id);
+    await this.requireClient().collection(DOCUMENTS_COLLECTION).doc(id).delete();
+  }
+
+  /**
+   * Reorders documents within a folder or at collection root.
+   *
+   * @param actingUserId - User performing the reorder action.
+   */
+  async reorderDocuments(
+    collectionId: string,
+    folderId: string | null,
+    orderedDocumentIds: string[],
+    actingUserId: string
+  ): Promise<void> {
+    const client = this.requireClient();
+    const updatedAt = new Date();
+    const batch = client.batch();
+
+    for (let index = 0; index < orderedDocumentIds.length; index++) {
+      const docRef = client.collection(DOCUMENTS_COLLECTION).doc(orderedDocumentIds[index]);
+      batch.update(docRef, {
+        sortOrder: index,
+        folderId,
+        collectionId,
+        updatedAt,
+        updatedByUserId: actingUserId
+      });
+    }
+
+    await batch.commit();
+    await this.recordAuditEntry(actingUserId, 'reorder', 'document', collectionId, {
+      folderId,
+      orderedDocumentIds
+    });
+  }
+
+  /**
+   * Moves a document to another folder or collection root at a given index.
+   *
+   * @param actingUserId - User performing the move action.
+   */
+  async moveDocument(
+    documentId: string,
+    folderId: string | null,
+    index: number,
+    actingUserId: string
+  ): Promise<void> {
+    const client = this.requireClient();
+    const updatedAt = new Date();
+    const documentSnap = await client.collection(DOCUMENTS_COLLECTION).doc(documentId).get();
+    if (!documentSnap.exists) {
+      throw new Error('Document not found');
+    }
+
+    const document = mapFirestoreDocument(
+      documentSnap.id,
+      documentSnap.data() as FirestoreDocumentDocument
+    );
+    const collectionId = document.collectionId;
+    const oldFolderId = document.folderId;
+
+    if (folderId != null) {
+      const folderSnap = await client.collection(FOLDERS_COLLECTION).doc(folderId).get();
+      if (!folderSnap.exists) {
+        throw new Error('Folder not found');
+      }
+
+      const folder = folderSnap.data() as FirestoreFolderDocument;
+      if (folder.collectionId !== collectionId) {
+        throw new Error('Folder not found');
+      }
+    }
+
+    /**
+     * Lists document ids in a container ordered for reindexing.
+     *
+     * @param targetFolderId - Folder id or null for collection root.
+     */
+    const listInContainer = async (targetFolderId: string | null): Promise<string[]> => {
+      const documents = await this.listDocuments(collectionId);
+      return documents
+        .filter((item) => item.folderId === targetFolderId)
+        .sort((left, right) => {
+          if (left.sortOrder !== right.sortOrder) {
+            return left.sortOrder - right.sortOrder;
+          }
+
+          return left.name.localeCompare(right.name);
+        })
+        .map((item) => item.id);
+    };
+
+    /**
+     * Rewrites sort_order and folder_id for a container's document list.
+     *
+     * @param targetFolderId - Folder id or null for collection root.
+     * @param orderedIds - Document ids in desired order.
+     */
+    const reindexContainer = async (
+      targetFolderId: string | null,
+      orderedIds: string[]
+    ): Promise<void> => {
+      const batch = client.batch();
+      for (let sortIndex = 0; sortIndex < orderedIds.length; sortIndex++) {
+        const docRef = client.collection(DOCUMENTS_COLLECTION).doc(orderedIds[sortIndex]);
+        batch.update(docRef, {
+          sortOrder: sortIndex,
+          folderId: targetFolderId,
+          updatedAt,
+          updatedByUserId: actingUserId
+        });
+      }
+      await batch.commit();
+    };
+
+    if (oldFolderId === folderId) {
+      const siblings = (await listInContainer(folderId)).filter((id) => id !== documentId);
+      siblings.splice(index, 0, documentId);
+      await reindexContainer(folderId, siblings);
+      await this.recordAuditEntry(actingUserId, 'move', 'document', documentId, {
+        folderId,
+        index
+      });
+      return;
+    }
+
+    const oldIds = (await listInContainer(oldFolderId)).filter((id) => id !== documentId);
+    await reindexContainer(oldFolderId, oldIds);
+
+    const newIds = (await listInContainer(folderId)).filter((id) => id !== documentId);
+    newIds.splice(index, 0, documentId);
+    await reindexContainer(folderId, newIds);
+
+    await this.recordAuditEntry(actingUserId, 'move', 'document', documentId, {
       folderId,
       index
     });

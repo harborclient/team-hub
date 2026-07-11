@@ -12,7 +12,9 @@ import type {
   ListAuditLogOptions,
   RedeemedInvitationResult,
   SaveRequestInput,
+  SaveDocumentInput,
   SavedRequestRecord,
+  DocumentRecord,
   SnippetRecord,
   SnippetScope,
   UpdateUserInput,
@@ -569,6 +571,69 @@ export interface IDatabase {
    */
   moveRequest(
     requestId: string,
+    folderId: string | null,
+    index: number,
+    actingUserId: string
+  ): Promise<void>;
+
+  /**
+   * Lists all documents in a collection.
+   *
+   * @param collectionId - Collection to query.
+   * @returns Documents ordered by sort_order then name.
+   */
+  listDocuments(collectionId: string): Promise<DocumentRecord[]>;
+
+  /**
+   * Finds a document by id.
+   *
+   * @param id - Document identifier to look up.
+   * @returns Matching document record, or null when not found.
+   */
+  findDocumentById(id: string): Promise<DocumentRecord | null>;
+
+  /**
+   * Inserts a new document or updates an existing one.
+   *
+   * @param input - Document fields to persist.
+   * @param actingUserId - User performing the save action.
+   * @returns The saved document with ID and timestamps.
+   */
+  saveDocument(input: SaveDocumentInput, actingUserId: string): Promise<DocumentRecord>;
+
+  /**
+   * Deletes a document by ID.
+   *
+   * @param id - Document ID to delete.
+   * @param actingUserId - User performing the delete action.
+   */
+  deleteDocument(id: string, actingUserId: string): Promise<void>;
+
+  /**
+   * Reorders documents within a folder or at collection root.
+   *
+   * @param collectionId - Collection containing the documents.
+   * @param folderId - Folder ID, or null for root-level documents.
+   * @param orderedDocumentIds - Document IDs in desired order.
+   * @param actingUserId - User performing the reorder action.
+   */
+  reorderDocuments(
+    collectionId: string,
+    folderId: string | null,
+    orderedDocumentIds: string[],
+    actingUserId: string
+  ): Promise<void>;
+
+  /**
+   * Moves a document to another folder or collection root at a given index.
+   *
+   * @param documentId - Document ID to move.
+   * @param folderId - Destination folder ID, or null for collection root.
+   * @param index - Zero-based position within the destination container.
+   * @param actingUserId - User performing the move action.
+   */
+  moveDocument(
+    documentId: string,
     folderId: string | null,
     index: number,
     actingUserId: string

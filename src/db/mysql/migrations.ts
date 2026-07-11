@@ -130,6 +130,28 @@ CREATE TABLE IF NOT EXISTS requests (
 `.trim();
 
 /**
+ * DDL for creating the documents table when absent.
+ */
+export const DOCUMENTS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS documents (
+  id VARCHAR(36) PRIMARY KEY,
+  collection_id VARCHAR(36) NOT NULL,
+  folder_id VARCHAR(36) NULL,
+  name VARCHAR(255) NOT NULL,
+  content LONGTEXT NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  created_by_user_id VARCHAR(36) NULL,
+  updated_by_user_id VARCHAR(36) NULL,
+  FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+  FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+)
+`.trim();
+
+/**
  * DDL for creating the users table when absent.
  */
 export const USERS_MIGRATION_SQL = `
@@ -402,6 +424,7 @@ export const MYSQL_MIGRATIONS = [
   SNIPPETS_MIGRATION_SQL,
   FOLDERS_MIGRATION_SQL,
   REQUESTS_MIGRATION_SQL,
+  DOCUMENTS_MIGRATION_SQL,
   AUDIT_LOG_MIGRATION_SQL,
   API_TOKENS_USER_ID_MIGRATION_SQL,
   API_TOKENS_ATTRIBUTION_MIGRATION_SQL,

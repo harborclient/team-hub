@@ -54,8 +54,10 @@ import {
 } from '#/server/routes/schemas/common.js';
 import {
   emptyResponseSchema,
+  listDocumentsResponseSchema,
   listFoldersResponseSchema,
   listRequestsResponseSchema,
+  serializeDocument,
   serializeFolder,
   serializeRunResult,
   serializeSavedRequest,
@@ -597,6 +599,47 @@ export async function registerAdminRoutes(
         const requests = await db.listRequests(request.params.collectionId);
         return reply.send({
           requests: requests.map((savedRequest) => serializeSavedRequest(savedRequest))
+        });
+      } catch (error) {
+        if (handleDbError(reply, error)) {
+          return;
+        }
+
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'GET',
+    url: '/admin/collections/:collectionId/documents',
+    schema: {
+      params: collectionIdParamSchema,
+      response: {
+        200: listDocumentsResponseSchema,
+        403: errorResponseSchema,
+        404: errorResponseSchema
+      }
+    },
+    /**
+     * Lists collection documents in a collection for operator inspection.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        if (denyUnlessAllowed(reply, canUseManagementApi(user))) {
+          return;
+        }
+
+        const collection = await db.findCollectionById(request.params.collectionId);
+        if (!collection) {
+          void reply.code(404).send({ error: 'Collection not found' });
+          return;
+        }
+
+        const documents = await db.listDocuments(request.params.collectionId);
+        return reply.send({
+          documents: documents.map((document) => serializeDocument(document))
         });
       } catch (error) {
         if (handleDbError(reply, error)) {

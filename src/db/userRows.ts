@@ -169,6 +169,11 @@ export const FOLDER_SELECT_COLUMNS = `id, collection_id, name, sort_order, creat
 export const REQUEST_SELECT_COLUMNS = `id, collection_id, folder_id, name, method, url, headers, params, auth, body, body_type, pre_request_script, post_request_script, comment, sort_order, created_at, updated_at, created_by_user_id, updated_by_user_id`;
 
 /**
+ * Column list for SELECT queries against the documents table.
+ */
+export const DOCUMENT_SELECT_COLUMNS = `id, collection_id, folder_id, name, content, sort_order, created_at, updated_at, created_by_user_id, updated_by_user_id`;
+
+/**
  * Column list for SELECT queries against the api_tokens table.
  */
 export const API_TOKEN_SELECT_COLUMNS = `id, user_id, name, token_hash, token_prefix, created_at, last_used_at, revoked_at, created_by_user_id, updated_by_user_id`;

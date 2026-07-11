@@ -3,6 +3,7 @@ import type {
   CollectionRecord,
   EnvironmentRecord,
   FolderRecord,
+  DocumentRecord,
   RunResultRecord,
   SavedRequestRecord,
   SnippetRecord
@@ -261,6 +262,61 @@ export const listRequestsResponseSchema = z.object({
 });
 
 /**
+ * JSON shape for a persisted collection document record.
+ */
+export const documentRecordSchema = z.object({
+  id: z.string(),
+  collectionId: z.string(),
+  name: z.string(),
+  content: z.string(),
+  folderId: z.string().nullable(),
+  sortOrder: z.number().int(),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+  createdByUserId: z.string().nullable(),
+  updatedByUserId: z.string().nullable()
+});
+
+/**
+ * Request body for creating or updating a collection document.
+ */
+export const saveDocumentBodySchema = z.object({
+  name: z.string().trim().min(1),
+  content: z.string(),
+  folderId: z.string().nullable().optional()
+});
+
+/**
+ * Request body for updating an existing collection document.
+ */
+export const updateSaveDocumentBodySchema = saveDocumentBodySchema.extend({
+  collectionId: z.string().trim().min(1)
+});
+
+/**
+ * Request body for reordering documents within a folder or collection root.
+ */
+export const reorderDocumentsBodySchema = z.object({
+  folderId: z.string().nullable(),
+  orderedDocumentIds: z.array(z.string().trim().min(1))
+});
+
+/**
+ * Request body for moving a document to another folder or root index.
+ */
+export const moveDocumentBodySchema = z.object({
+  folderId: z.string().nullable(),
+  index: z.number().int().min(0)
+});
+
+/**
+ * List response wrapper for collection documents.
+ */
+export const listDocumentsResponseSchema = z.object({
+  documents: z.array(documentRecordSchema)
+});
+
+/**
  * Empty JSON body schema for 204 No Content responses.
  */
 export const emptyResponseSchema = z.null();
@@ -328,6 +384,20 @@ export function serializeFolder(record: FolderRecord) {
  * @returns Saved request with ISO timestamp strings.
  */
 export function serializeSavedRequest(record: SavedRequestRecord) {
+  return {
+    ...record,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString()
+  };
+}
+
+/**
+ * Serializes a collection document record for JSON responses.
+ *
+ * @param record - Document record from the database layer.
+ * @returns Document with ISO timestamp strings.
+ */
+export function serializeDocument(record: DocumentRecord) {
   return {
     ...record,
     createdAt: record.createdAt.toISOString(),

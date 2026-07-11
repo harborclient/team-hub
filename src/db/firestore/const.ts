@@ -39,6 +39,11 @@ export const FOLDERS_COLLECTION = 'folders';
 export const REQUESTS_COLLECTION = 'requests';
 
 /**
+ * Firestore collection name for collection document files.
+ */
+export const DOCUMENTS_COLLECTION = 'documents';
+
+/**
  * Firestore collection name for audit log documents.
  */
 export const AUDIT_LOG_COLLECTION = 'auditLog';

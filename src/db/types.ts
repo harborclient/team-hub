@@ -20,6 +20,7 @@ export type AuditEntityType =
   | 'snippet'
   | 'folder'
   | 'request'
+  | 'document'
   | 'run_result';
 
 /**
@@ -1163,6 +1164,91 @@ export interface SaveRequestInput {
 
   /**
    * ID of the folder containing this request, or null when at collection root.
+   */
+  folderId?: string | null;
+}
+
+/**
+ * A markdown document attached to a collection or folder.
+ */
+export interface DocumentRecord {
+  /**
+   * Stable document identifier.
+   */
+  id: string;
+
+  /**
+   * ID of the collection this document belongs to.
+   */
+  collectionId: string;
+
+  /**
+   * ID of the folder containing this document, or null when at collection root.
+   */
+  folderId: string | null;
+
+  /**
+   * Display file name shown in the sidebar (for example README.md).
+   */
+  name: string;
+
+  /**
+   * Markdown body content.
+   */
+  content: string;
+
+  /**
+   * Position within the collection or folder for sidebar ordering.
+   */
+  sortOrder: number;
+
+  /**
+   * When the document was created.
+   */
+  createdAt: Date;
+
+  /**
+   * When the document was last saved.
+   */
+  updatedAt: Date;
+
+  /**
+   * User who created the document.
+   */
+  createdByUserId: string | null;
+
+  /**
+   * User who last updated the document.
+   */
+  updatedByUserId: string | null;
+}
+
+/**
+ * Input for creating or updating a collection document.
+ */
+export interface SaveDocumentInput {
+  /**
+   * Existing document ID; omit to insert a new document.
+   */
+  id?: string;
+
+  /**
+   * ID of the collection to save the document in.
+   */
+  collectionId: string;
+
+  /**
+   * Display file name for the document.
+   */
+  name: string;
+
+  /**
+   * Markdown body content.
+   */
+  content: string;
+
+  /**
+   * ID of the folder containing this document, or null when at collection root.
    */
   folderId?: string | null;
 }

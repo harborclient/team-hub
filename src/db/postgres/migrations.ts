@@ -117,6 +117,26 @@ CREATE TABLE IF NOT EXISTS requests (
 `.trim();
 
 /**
+ * DDL for creating the documents table when absent.
+ */
+export const DOCUMENTS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS documents (
+  id TEXT PRIMARY KEY,
+  collection_id TEXT NOT NULL,
+  folder_id TEXT,
+  name TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  updated_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+  FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE
+);
+`.trim();
+
+/**
  * DDL for creating the users table when absent.
  */
 export const USERS_MIGRATION_SQL = `
@@ -373,6 +393,7 @@ export const POSTGRES_MIGRATIONS = [
   SNIPPETS_MIGRATION_SQL,
   FOLDERS_MIGRATION_SQL,
   REQUESTS_MIGRATION_SQL,
+  DOCUMENTS_MIGRATION_SQL,
   AUDIT_LOG_MIGRATION_SQL,
   API_TOKENS_USER_ID_MIGRATION_SQL,
   API_TOKENS_ATTRIBUTION_MIGRATION_SQL,

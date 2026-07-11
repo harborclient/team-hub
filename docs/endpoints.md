@@ -1,6 +1,6 @@
 # API Endpoints
 
-Team Hub exposes a JSON HTTP API for shared collections, environments, snippets, folders, and saved requests. Public routes include `GET /health`, `GET /join`, and the invitation preview/redeem endpoints documented below. All other routes require a valid bearer token — see [Authentication](./auth.md).
+Team Hub exposes a JSON HTTP API for shared collections, environments, snippets, folders, saved requests, and collection documents. Public routes include `GET /health`, `GET /join`, and the invitation preview/redeem endpoints documented below. All other routes require a valid bearer token — see [Authentication](./auth.md).
 
 ## Overview
 
@@ -411,6 +411,24 @@ Updates admin configuration for a collection. Currently supports toggling `delet
 Deletes a collection and all nested folders and requests. Admins may delete regardless of `deletionLocked`.
 
 **Response `204`:** Collection deleted.
+
+**Response `403`:** Authenticated `user`-role token.
+
+**Response `404`:** Unknown collection id.
+
+### GET /admin/collections/:collectionId/documents
+
+Lists collection documents in a collection for operator inspection.
+
+**Response `200`:**
+
+```json
+{
+  "documents": [
+    /* document records */
+  ]
+}
+```
 
 **Response `403`:** Authenticated `user`-role token.
 
@@ -1150,6 +1168,157 @@ Set `folderId` to `null` to move the request to the collection root at `index`.
 **Response `204`:** No content.
 
 **Response `404`:** Request or folder not found.
+
+## Documents
+
+Collection documents store markdown files attached to a collection or folder (for example `README.md`).
+
+**Document record:**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440006",
+  "collectionId": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "README.md",
+  "content": "# API notes",
+  "folderId": null,
+  "sortOrder": 0,
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}
+```
+
+`folderId` is `null` when the document lives at the collection root.
+
+### GET /collections/:collectionId/documents
+
+Lists collection documents in a collection.
+
+**Auth:** Bearer token required.
+
+**Response `200`:**
+
+```json
+{
+  "documents": [
+    /* document records */
+  ]
+}
+```
+
+```bash
+curl -s http://127.0.0.1:8788/collections/550e8400-e29b-41d4-a716-446655440000/documents \
+  -H "Authorization: Bearer hbk_your_token_here"
+```
+
+### POST /collections/:collectionId/documents
+
+Creates a new collection document in a collection.
+
+**Auth:** Bearer token required.
+
+**Request body:**
+
+```json
+{
+  "name": "README.md",
+  "content": "# API notes",
+  "folderId": null
+}
+```
+
+**Response `200`:** Created document record.
+
+**Response `400`:** Validation error.
+
+**Response `404`:** Collection or folder not found.
+
+```bash
+curl -s -X POST http://127.0.0.1:8788/collections/550e8400-e29b-41d4-a716-446655440000/documents \
+  -H "Authorization: Bearer hbk_your_token_here" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"README.md","content":"# API notes"}'
+```
+
+### PUT /documents/:id
+
+Updates an existing collection document by id.
+
+**Auth:** Bearer token required.
+
+**Request body:**
+
+```json
+{
+  "collectionId": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "README.md",
+  "content": "# Updated notes",
+  "folderId": null
+}
+```
+
+**Response `200`:** Updated document record.
+
+**Response `400`:** Validation error.
+
+**Response `404`:** Document, collection, or folder not found.
+
+### DELETE /documents/:id
+
+Deletes a collection document by id. Only the user who created the document may delete it via this route.
+
+**Auth:** Bearer token required.
+
+**Response `204`:** No content.
+
+**Response `403`:** The authenticated user did not create the document (`{ "error": "Forbidden" }`).
+
+**Response `404`:** Document not found.
+
+### PUT /collections/:collectionId/documents/reorder
+
+Reorders collection documents within a folder or the collection root.
+
+**Auth:** Bearer token required.
+
+**Request body:**
+
+```json
+{
+  "folderId": null,
+  "orderedDocumentIds": [
+    "550e8400-e29b-41d4-a716-446655440006",
+    "550e8400-e29b-41d4-a716-446655440007"
+  ]
+}
+```
+
+Set `folderId` to `null` to reorder documents at the collection root.
+
+**Response `204`:** No content.
+
+**Response `404`:** Collection, folder, or document not found.
+
+### PUT /documents/:id/move
+
+Moves a single collection document to another folder or a specific index at the collection root.
+
+**Auth:** Bearer token required.
+
+**Request body:**
+
+```json
+{
+  "folderId": "550e8400-e29b-41d4-a716-446655440002",
+  "index": 0
+}
+```
+
+Set `folderId` to `null` to move the document to the collection root at `index`.
+
+**Response `204`:** No content.
+
+**Response `404`:** Document or folder not found.
 
 ## LLM routes
 

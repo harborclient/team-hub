@@ -1,5 +1,6 @@
 import type {
   CollectionRecord,
+  DocumentRecord,
   EnvironmentRecord,
   RunResultRecord,
   SavedRequestRecord,
@@ -206,6 +207,21 @@ export function canDeleteRequest(user: UserRecord, request: SavedRequestRecord):
     canUseDataApi(user) &&
     canAccessCollection(user, request.collectionId) &&
     request.createdByUserId === user.id
+  );
+}
+
+/**
+ * Returns true when the user may delete a specific document via the data API.
+ *
+ * @param user - Authenticated user attached to the request.
+ * @param document - Document record being deleted.
+ * @returns True when the user created the document and has access to its collection.
+ */
+export function canDeleteDocument(user: UserRecord, document: DocumentRecord): boolean {
+  return (
+    canUseDataApi(user) &&
+    canAccessCollection(user, document.collectionId) &&
+    document.createdByUserId === user.id
   );
 }
 

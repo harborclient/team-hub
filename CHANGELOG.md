@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add document management functionality to the API. (`e03b05c`)
 - Update Dockerfile to include additional configuration files and assets. (`171e648`)
 - Implement onboarding invitation landing page and related features. (`124b28f`)
 

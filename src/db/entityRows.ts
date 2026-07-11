@@ -11,6 +11,7 @@ import type {
   HttpMethod,
   KeyValue,
   SavedRequestRecord,
+  DocumentRecord,
   Variable
 } from '#/db/types.js';
 import { defaultAuth, normalizeAuth, normalizeVariable } from '#/db/types.js';
@@ -361,6 +362,61 @@ export interface RequestSqlRow {
 }
 
 /**
+ * SQL row shape returned by relational backends for the documents table.
+ */
+export interface DocumentSqlRow {
+  /**
+   * Primary key identifier.
+   */
+  id: string;
+
+  /**
+   * Parent collection identifier column.
+   */
+  collection_id: string;
+
+  /**
+   * Optional parent folder identifier column.
+   */
+  folder_id: string | null;
+
+  /**
+   * Display name column.
+   */
+  name: string;
+
+  /**
+   * Markdown body content column.
+   */
+  content: string;
+
+  /**
+   * Sort order column.
+   */
+  sort_order: number;
+
+  /**
+   * Creation timestamp column.
+   */
+  created_at: Date;
+
+  /**
+   * Last-updated timestamp column.
+   */
+  updated_at: Date;
+
+  /**
+   * Creating user identifier column.
+   */
+  created_by_user_id: string | null;
+
+  /**
+   * Last updating user identifier column.
+   */
+  updated_by_user_id: string | null;
+}
+
+/**
  * Maps a snake_case SQL row to the shared {@link CollectionRecord} shape.
  *
  * @param row - Database row from collections.
@@ -520,6 +576,27 @@ export function mapRequestSqlRow(row: RequestSqlRow): SavedRequestRecord {
     preRequestScript: row.pre_request_script,
     postRequestScript: row.post_request_script,
     comment: row.comment,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    createdByUserId: row.created_by_user_id ?? null,
+    updatedByUserId: row.updated_by_user_id ?? null
+  };
+}
+
+/**
+ * Maps a snake_case SQL row to the shared {@link DocumentRecord} shape.
+ *
+ * @param row - Database row from documents.
+ * @returns Normalized document record for application code.
+ */
+export function mapDocumentSqlRow(row: DocumentSqlRow): DocumentRecord {
+  return {
+    id: row.id,
+    collectionId: row.collection_id,
+    folderId: row.folder_id,
+    name: row.name,
+    content: row.content,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
