@@ -246,6 +246,11 @@ export interface FirestoreCollectionDocument {
    * When true, non-admin users cannot delete this collection.
    */
   deletionLocked?: boolean;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color?: string | null;
 }
 
 /**
@@ -286,6 +291,11 @@ export interface FirestoreEnvironmentDocument {
    * When true, non-admin users cannot delete this environment.
    */
   deletionLocked?: boolean;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color?: string | null;
 }
 
 /**
@@ -376,6 +386,11 @@ export interface FirestoreFolderDocument {
    * User who last updated the folder.
    */
   updatedByUserId: string | null;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color?: string | null;
 }
 
 /**
@@ -471,6 +486,11 @@ export interface FirestoreRequestDocument {
    * User who last updated the request.
    */
   updatedByUserId: string | null;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color?: string | null;
 }
 
 /**
@@ -521,11 +541,12 @@ export interface FirestoreDocumentDocument {
    * User who last updated the document.
    */
   updatedByUserId: string | null;
-}
 
-/**
- * Firestore document shape for persisted audit log entries.
- */
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color?: string | null;
+}
 export interface FirestoreAuditLogDocument {
   /**
    * Acting user identifier, when known.

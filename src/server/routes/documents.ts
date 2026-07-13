@@ -103,7 +103,8 @@ export async function registerDocumentRoutes(app: FastifyInstance, db: IDatabase
             collectionId: request.params.collectionId,
             name: request.body.name,
             content: request.body.content,
-            folderId: request.body.folderId ?? null
+            folderId: request.body.folderId ?? null,
+            color: request.body.color
           },
           user.id
         );
@@ -151,7 +152,8 @@ export async function registerDocumentRoutes(app: FastifyInstance, db: IDatabase
             collectionId: request.body.collectionId,
             name: request.body.name,
             content: request.body.content,
-            folderId: request.body.folderId ?? null
+            folderId: request.body.folderId ?? null,
+            color: request.body.color
           },
           user.id
         );

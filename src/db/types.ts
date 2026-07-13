@@ -751,6 +751,11 @@ export interface CollectionRecord {
    * When true, non-admin users cannot delete this collection.
    */
   deletionLocked: boolean;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color: string | null;
 }
 
 /**
@@ -796,6 +801,11 @@ export interface EnvironmentRecord {
    * When true, non-admin users cannot delete this environment.
    */
   deletionLocked: boolean;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color: string | null;
 }
 
 /**
@@ -991,6 +1001,11 @@ export interface FolderRecord {
    * User who last updated the folder.
    */
   updatedByUserId: string | null;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color: string | null;
 }
 
 /**
@@ -1091,6 +1106,11 @@ export interface SavedRequestRecord {
    * User who last updated the request.
    */
   updatedByUserId: string | null;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color: string | null;
 }
 
 /**
@@ -1166,6 +1186,11 @@ export interface SaveRequestInput {
    * ID of the folder containing this request, or null when at collection root.
    */
   folderId?: string | null;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color?: string | null;
 }
 
 /**
@@ -1221,6 +1246,11 @@ export interface DocumentRecord {
    * User who last updated the document.
    */
   updatedByUserId: string | null;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color: string | null;
 }
 
 /**
@@ -1251,6 +1281,11 @@ export interface SaveDocumentInput {
    * ID of the folder containing this document, or null when at collection root.
    */
   folderId?: string | null;
+
+  /**
+   * Optional CSS color for sidebar visual grouping.
+   */
+  color?: string | null;
 }
 
 /**

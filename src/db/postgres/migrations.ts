@@ -383,6 +383,46 @@ CREATE INDEX IF NOT EXISTS user_invitations_expires_at_idx ON user_invitations (
 `.trim();
 
 /**
+ * Adds sidebar color column to collections when upgrading existing databases.
+ */
+export const COLLECTIONS_COLOR_MIGRATION_SQL = `
+ALTER TABLE collections
+  ADD COLUMN IF NOT EXISTS color TEXT;
+`.trim();
+
+/**
+ * Adds sidebar color column to folders when upgrading existing databases.
+ */
+export const FOLDERS_COLOR_MIGRATION_SQL = `
+ALTER TABLE folders
+  ADD COLUMN IF NOT EXISTS color TEXT;
+`.trim();
+
+/**
+ * Adds sidebar color column to requests when upgrading existing databases.
+ */
+export const REQUESTS_COLOR_MIGRATION_SQL = `
+ALTER TABLE requests
+  ADD COLUMN IF NOT EXISTS color TEXT;
+`.trim();
+
+/**
+ * Adds sidebar color column to documents when upgrading existing databases.
+ */
+export const DOCUMENTS_COLOR_MIGRATION_SQL = `
+ALTER TABLE documents
+  ADD COLUMN IF NOT EXISTS color TEXT;
+`.trim();
+
+/**
+ * Adds sidebar color column to environments when upgrading existing databases.
+ */
+export const ENVIRONMENTS_COLOR_MIGRATION_SQL = `
+ALTER TABLE environments
+  ADD COLUMN IF NOT EXISTS color TEXT;
+`.trim();
+
+/**
  * Ordered Postgres migrations applied by {@link PostgresDatabase.migrate}.
  */
 export const POSTGRES_MIGRATIONS = [
@@ -413,5 +453,10 @@ export const POSTGRES_MIGRATIONS = [
   USERS_SNIPPET_ACCESS_MIGRATION_SQL,
   USERS_SNIPPET_ACCESS_BACKFILL_SQL,
   RUN_RESULTS_MIGRATION_SQL,
-  USER_INVITATIONS_MIGRATION_SQL
+  USER_INVITATIONS_MIGRATION_SQL,
+  COLLECTIONS_COLOR_MIGRATION_SQL,
+  FOLDERS_COLOR_MIGRATION_SQL,
+  REQUESTS_COLOR_MIGRATION_SQL,
+  DOCUMENTS_COLOR_MIGRATION_SQL,
+  ENVIRONMENTS_COLOR_MIGRATION_SQL
 ];

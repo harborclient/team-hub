@@ -112,7 +112,8 @@ export async function registerRequestRoutes(app: FastifyInstance, db: IDatabase)
             preRequestScript: request.body.preRequestScript,
             postRequestScript: request.body.postRequestScript,
             comment: request.body.comment,
-            folderId: request.body.folderId ?? null
+            folderId: request.body.folderId ?? null,
+            color: request.body.color
           },
           user.id
         );
@@ -169,7 +170,8 @@ export async function registerRequestRoutes(app: FastifyInstance, db: IDatabase)
             preRequestScript: request.body.preRequestScript,
             postRequestScript: request.body.postRequestScript,
             comment: request.body.comment,
-            folderId: request.body.folderId ?? null
+            folderId: request.body.folderId ?? null,
+            color: request.body.color
           },
           user.id
         );

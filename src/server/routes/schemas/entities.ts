@@ -18,6 +18,11 @@ import {
 } from '#/server/routes/schemas/common.js';
 
 /**
+ * Optional sidebar color accepted in create/update request bodies.
+ */
+export const sidebarColorBodySchema = z.union([z.string().trim().min(1), z.null()]).optional();
+
+/**
  * JSON shape for a persisted collection record.
  */
 export const collectionRecordSchema = z.object({
@@ -32,7 +37,8 @@ export const collectionRecordSchema = z.object({
   updatedAt: timestampSchema,
   createdByUserId: z.string().nullable(),
   updatedByUserId: z.string().nullable(),
-  deletionLocked: z.boolean()
+  deletionLocked: z.boolean(),
+  color: z.string().nullable()
 });
 
 /**
@@ -46,7 +52,8 @@ export const environmentRecordSchema = z.object({
   updatedAt: timestampSchema,
   createdByUserId: z.string().nullable(),
   updatedByUserId: z.string().nullable(),
-  deletionLocked: z.boolean()
+  deletionLocked: z.boolean(),
+  color: z.string().nullable()
 });
 
 /**
@@ -81,7 +88,8 @@ export const folderRecordSchema = z.object({
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   createdByUserId: z.string().nullable(),
-  updatedByUserId: z.string().nullable()
+  updatedByUserId: z.string().nullable(),
+  color: z.string().nullable()
 });
 
 /**
@@ -106,14 +114,16 @@ export const savedRequestRecordSchema = z.object({
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   createdByUserId: z.string().nullable(),
-  updatedByUserId: z.string().nullable()
+  updatedByUserId: z.string().nullable(),
+  color: z.string().nullable()
 });
 
 /**
  * Request body for creating a collection.
  */
 export const createCollectionBodySchema = z.object({
-  name: z.string().trim().min(1)
+  name: z.string().trim().min(1),
+  color: sidebarColorBodySchema
 });
 
 /**
@@ -125,14 +135,16 @@ export const updateCollectionBodySchema = z.object({
   headers: z.array(keyValueSchema),
   preRequestScript: z.string(),
   postRequestScript: z.string(),
-  auth: authConfigSchema
+  auth: authConfigSchema,
+  color: sidebarColorBodySchema
 });
 
 /**
  * Request body for creating an environment.
  */
 export const createEnvironmentBodySchema = z.object({
-  name: z.string().trim().min(1)
+  name: z.string().trim().min(1),
+  color: sidebarColorBodySchema
 });
 
 /**
@@ -140,7 +152,8 @@ export const createEnvironmentBodySchema = z.object({
  */
 export const updateEnvironmentBodySchema = z.object({
   name: z.string().trim().min(1),
-  variables: z.array(variableSchema)
+  variables: z.array(variableSchema),
+  color: sidebarColorBodySchema
 });
 
 /**
@@ -168,14 +181,16 @@ export const updateSnippetBodySchema = z.object({
  * Request body for creating a folder.
  */
 export const createFolderBodySchema = z.object({
-  name: z.string().trim().min(1)
+  name: z.string().trim().min(1),
+  color: sidebarColorBodySchema
 });
 
 /**
  * Request body for renaming a folder.
  */
 export const renameFolderBodySchema = z.object({
-  name: z.string().trim().min(1)
+  name: z.string().trim().min(1),
+  color: sidebarColorBodySchema
 });
 
 /**
@@ -200,7 +215,8 @@ export const saveRequestBodySchema = z.object({
   preRequestScript: z.string(),
   postRequestScript: z.string(),
   comment: z.string(),
-  folderId: z.string().nullable().optional()
+  folderId: z.string().nullable().optional(),
+  color: sidebarColorBodySchema
 });
 
 /**
@@ -274,7 +290,8 @@ export const documentRecordSchema = z.object({
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   createdByUserId: z.string().nullable(),
-  updatedByUserId: z.string().nullable()
+  updatedByUserId: z.string().nullable(),
+  color: z.string().nullable()
 });
 
 /**
@@ -283,7 +300,8 @@ export const documentRecordSchema = z.object({
 export const saveDocumentBodySchema = z.object({
   name: z.string().trim().min(1),
   content: z.string(),
-  folderId: z.string().nullable().optional()
+  folderId: z.string().nullable().optional(),
+  color: sidebarColorBodySchema
 });
 
 /**

@@ -146,12 +146,12 @@ export const USER_SELECT_COLUMNS = `id, name, role, collection_access, environme
 /**
  * Column list for SELECT queries against the collections table.
  */
-export const COLLECTION_SELECT_COLUMNS = `id, name, variables, headers, auth, pre_request_script, post_request_script, created_at, updated_at, created_by_user_id, updated_by_user_id, deletion_locked`;
+export const COLLECTION_SELECT_COLUMNS = `id, name, variables, headers, auth, pre_request_script, post_request_script, created_at, updated_at, created_by_user_id, updated_by_user_id, deletion_locked, color`;
 
 /**
  * Column list for SELECT queries against the environments table.
  */
-export const ENVIRONMENT_SELECT_COLUMNS = `id, name, variables, created_at, updated_at, created_by_user_id, updated_by_user_id, deletion_locked`;
+export const ENVIRONMENT_SELECT_COLUMNS = `id, name, variables, created_at, updated_at, created_by_user_id, updated_by_user_id, deletion_locked, color`;
 
 /**
  * Column list for SELECT queries against the snippets table.
@@ -161,17 +161,17 @@ export const SNIPPET_SELECT_COLUMNS = `id, name, code, scope, sort_order, create
 /**
  * Column list for SELECT queries against the folders table.
  */
-export const FOLDER_SELECT_COLUMNS = `id, collection_id, name, sort_order, created_at, updated_at, created_by_user_id, updated_by_user_id`;
+export const FOLDER_SELECT_COLUMNS = `id, collection_id, name, sort_order, created_at, updated_at, created_by_user_id, updated_by_user_id, color`;
 
 /**
  * Column list for SELECT queries against the requests table.
  */
-export const REQUEST_SELECT_COLUMNS = `id, collection_id, folder_id, name, method, url, headers, params, auth, body, body_type, pre_request_script, post_request_script, comment, sort_order, created_at, updated_at, created_by_user_id, updated_by_user_id`;
+export const REQUEST_SELECT_COLUMNS = `id, collection_id, folder_id, name, method, url, headers, params, auth, body, body_type, pre_request_script, post_request_script, comment, sort_order, created_at, updated_at, created_by_user_id, updated_by_user_id, color`;
 
 /**
  * Column list for SELECT queries against the documents table.
  */
-export const DOCUMENT_SELECT_COLUMNS = `id, collection_id, folder_id, name, content, sort_order, created_at, updated_at, created_by_user_id, updated_by_user_id`;
+export const DOCUMENT_SELECT_COLUMNS = `id, collection_id, folder_id, name, content, sort_order, created_at, updated_at, created_by_user_id, updated_by_user_id, color`;
 
 /**
  * Column list for SELECT queries against the api_tokens table.

@@ -279,6 +279,7 @@ export interface IDatabase {
    * @param postRequestScript - Script run after each request in the collection.
    * @param auth - Default Authorization settings for requests in the collection.
    * @param actingUserId - User performing the update action.
+   * @param color - Optional sidebar color; omit to leave the stored value unchanged.
    * @returns The updated collection.
    */
   updateCollection(
@@ -289,7 +290,8 @@ export interface IDatabase {
     preRequestScript: string,
     postRequestScript: string,
     auth: AuthConfig,
-    actingUserId: string
+    actingUserId: string,
+    color?: string | null
   ): Promise<CollectionRecord>;
 
   /**
@@ -345,13 +347,15 @@ export interface IDatabase {
    * @param name - New display name.
    * @param variables - Environment-scoped variables.
    * @param actingUserId - User performing the update action.
+   * @param color - Optional sidebar color; omit to leave the stored value unchanged.
    * @returns The updated environment.
    */
   updateEnvironment(
     id: string,
     name: string,
     variables: Variable[],
-    actingUserId: string
+    actingUserId: string,
+    color?: string | null
   ): Promise<EnvironmentRecord>;
 
   /**
@@ -521,9 +525,15 @@ export interface IDatabase {
    * @param id - Folder ID to rename.
    * @param name - New display name.
    * @param actingUserId - User performing the rename action.
+   * @param color - Optional sidebar color; omit to leave the stored value unchanged.
    * @returns The updated folder.
    */
-  renameFolder(id: string, name: string, actingUserId: string): Promise<FolderRecord>;
+  renameFolder(
+    id: string,
+    name: string,
+    actingUserId: string,
+    color?: string | null
+  ): Promise<FolderRecord>;
 
   /**
    * Deletes a folder and all requests inside it.

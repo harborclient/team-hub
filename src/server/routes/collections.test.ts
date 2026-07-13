@@ -20,7 +20,8 @@ const sampleCollection = {
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   ...sampleAttribution,
-  deletionLocked: false
+  deletionLocked: false,
+  color: null
 };
 
 describe('collection routes', () => {
@@ -298,6 +299,43 @@ describe('collection routes', () => {
 
     expect(response.statusCode).toBe(404);
     expect(response.json()).toEqual({ error: 'Collection not found' });
+
+    await app.close();
+  });
+
+  it('passes sidebar color through collection updates', async () => {
+    const db = createStubDatabase();
+    db.updateCollection.mockResolvedValue({ ...sampleCollection, color: '#32D2E2' });
+    const app = await createProtectedTestApp({ db, withValidAuth: true });
+
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/collections/collection-1',
+      headers: authHeader(),
+      payload: {
+        name: 'Shared API',
+        variables: [],
+        headers: [],
+        preRequestScript: '',
+        postRequestScript: '',
+        auth: defaultAuth(),
+        color: '#32D2E2'
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(db.updateCollection).toHaveBeenCalledWith(
+      'collection-1',
+      'Shared API',
+      [],
+      [],
+      '',
+      '',
+      defaultAuth(),
+      'user-1',
+      '#32D2E2'
+    );
+    expect(response.json().color).toBe('#32D2E2');
 
     await app.close();
   });

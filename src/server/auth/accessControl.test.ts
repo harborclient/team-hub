@@ -71,7 +71,8 @@ const sampleCollections: CollectionRecord[] = [
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     createdByUserId: 'user-1',
     updatedByUserId: null,
-    deletionLocked: false
+    deletionLocked: false,
+    color: null
   },
   {
     id: 'collection-b',
@@ -85,7 +86,8 @@ const sampleCollections: CollectionRecord[] = [
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     createdByUserId: null,
     updatedByUserId: null,
-    deletionLocked: false
+    deletionLocked: false,
+    color: null
   }
 ];
 
@@ -98,7 +100,8 @@ const sampleEnvironments: EnvironmentRecord[] = [
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     createdByUserId: null,
     updatedByUserId: null,
-    deletionLocked: false
+    deletionLocked: false,
+    color: null
   },
   {
     id: 'env-b',
@@ -108,7 +111,8 @@ const sampleEnvironments: EnvironmentRecord[] = [
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     createdByUserId: null,
     updatedByUserId: null,
-    deletionLocked: false
+    deletionLocked: false,
+    color: null
   }
 ];
 
@@ -131,7 +135,8 @@ const sampleRequest: SavedRequestRecord = {
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   createdByUserId: 'user-1',
-  updatedByUserId: null
+  updatedByUserId: null,
+  color: null
 };
 
 describe('accessControl', () => {

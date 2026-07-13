@@ -35,6 +35,7 @@ import { postgresConfigSchema } from '#/db/postgres/schemas.js';
 import type { PostgresDatabaseConfig } from '#/db/postgres/types.js';
 import { createSystemUserInput, SYSTEM_USER_NAME } from '#/db/systemUsers.js';
 import { trimRequiredName } from '#/db/trimRequiredName.js';
+import { serializeSidebarColor } from '#/db/sidebarColor.js';
 import { assertUserNameAvailable, assertUserNameNotReserved } from '#/db/userNameValidation.js';
 import {
   API_TOKEN_SELECT_COLUMNS,
@@ -997,12 +998,40 @@ export class PostgresDatabase implements IDatabase {
     preRequestScript: string,
     postRequestScript: string,
     auth: AuthConfig,
-    actingUserId: string
+    actingUserId: string,
+    color?: string | null
   ): Promise<CollectionRecord> {
     const trimmedName = trimRequiredName(name, 'Collection name');
     const updatedAt = new Date();
-    const result = await this.query(
-      `UPDATE collections
+    const result =
+      color !== undefined
+        ? await this.query(
+            `UPDATE collections
+      SET name = $1,
+        variables = $2,
+        headers = $3,
+        auth = $4,
+        pre_request_script = $5,
+        post_request_script = $6,
+        updated_at = $7,
+        updated_by_user_id = $8,
+        color = $9
+      WHERE id = $10`,
+            [
+              trimmedName,
+              JSON.stringify(variables),
+              JSON.stringify(headers),
+              JSON.stringify(auth),
+              preRequestScript,
+              postRequestScript,
+              updatedAt,
+              actingUserId,
+              serializeSidebarColor(color),
+              id
+            ]
+          )
+        : await this.query(
+            `UPDATE collections
       SET name = $1,
         variables = $2,
         headers = $3,
@@ -1012,18 +1041,18 @@ export class PostgresDatabase implements IDatabase {
         updated_at = $7,
         updated_by_user_id = $8
       WHERE id = $9`,
-      [
-        trimmedName,
-        JSON.stringify(variables),
-        JSON.stringify(headers),
-        JSON.stringify(auth),
-        preRequestScript,
-        postRequestScript,
-        updatedAt,
-        actingUserId,
-        id
-      ]
-    );
+            [
+              trimmedName,
+              JSON.stringify(variables),
+              JSON.stringify(headers),
+              JSON.stringify(auth),
+              preRequestScript,
+              postRequestScript,
+              updatedAt,
+              actingUserId,
+              id
+            ]
+          );
 
     if ((result.rowCount ?? 0) === 0) {
       throw new Error('Collection not found');
@@ -1155,19 +1184,39 @@ export class PostgresDatabase implements IDatabase {
     id: string,
     name: string,
     variables: Variable[],
-    actingUserId: string
+    actingUserId: string,
+    color?: string | null
   ): Promise<EnvironmentRecord> {
     const trimmedName = trimRequiredName(name, 'Environment name');
     const updatedAt = new Date();
-    const result = await this.query(
-      `UPDATE environments
+    const result =
+      color !== undefined
+        ? await this.query(
+            `UPDATE environments
+      SET name = $1,
+        variables = $2,
+        updated_at = $3,
+        updated_by_user_id = $4,
+        color = $5
+      WHERE id = $6`,
+            [
+              trimmedName,
+              JSON.stringify(variables),
+              updatedAt,
+              actingUserId,
+              serializeSidebarColor(color),
+              id
+            ]
+          )
+        : await this.query(
+            `UPDATE environments
       SET name = $1,
         variables = $2,
         updated_at = $3,
         updated_by_user_id = $4
       WHERE id = $5`,
-      [trimmedName, JSON.stringify(variables), updatedAt, actingUserId, id]
-    );
+            [trimmedName, JSON.stringify(variables), updatedAt, actingUserId, id]
+          );
 
     if ((result.rowCount ?? 0) === 0) {
       throw new Error('Environment not found');
@@ -1442,6 +1491,7 @@ export class PostgresDatabase implements IDatabase {
     const params = JSON.stringify(input.params);
     const auth = JSON.stringify(input.auth);
     const folderId = input.folderId ?? null;
+    const serializedColor = serializeSidebarColor(input.color ?? null);
     const now = new Date();
 
     if (folderId != null) {
@@ -1471,9 +1521,10 @@ export class PostgresDatabase implements IDatabase {
           pre_request_script = $11,
           post_request_script = $12,
           comment = $13,
-          updated_at = $14,
-          updated_by_user_id = $15
-        WHERE id = $16`,
+          color = $14,
+          updated_at = $15,
+          updated_by_user_id = $16
+        WHERE id = $17`,
         [
           input.collectionId,
           folderId,
@@ -1488,6 +1539,7 @@ export class PostgresDatabase implements IDatabase {
           input.preRequestScript,
           input.postRequestScript,
           input.comment,
+          serializedColor,
           now,
           actingUserId,
           input.id
@@ -1532,12 +1584,13 @@ export class PostgresDatabase implements IDatabase {
         pre_request_script,
         post_request_script,
         comment,
+        color,
         sort_order,
         created_at,
         updated_at,
         created_by_user_id,
         updated_by_user_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING ${REQUEST_SELECT_COLUMNS}`,
       [
         id,
@@ -1554,6 +1607,7 @@ export class PostgresDatabase implements IDatabase {
         input.preRequestScript,
         input.postRequestScript,
         input.comment,
+        serializedColor,
         maxOrder + 1,
         now,
         now,
@@ -1660,18 +1714,35 @@ export class PostgresDatabase implements IDatabase {
    * @param name - New display name.
    * @param actingUserId - User performing the rename action.
    */
-  async renameFolder(id: string, name: string, actingUserId: string): Promise<FolderRecord> {
+  async renameFolder(
+    id: string,
+    name: string,
+    actingUserId: string,
+    color?: string | null
+  ): Promise<FolderRecord> {
     const trimmedName = trimRequiredName(name, 'Folder name');
     const updatedAt = new Date();
-    const result = await this.query<FolderSqlRow>(
-      `UPDATE folders
+    const result =
+      color !== undefined
+        ? await this.query<FolderSqlRow>(
+            `UPDATE folders
+      SET name = $1,
+        updated_at = $2,
+        updated_by_user_id = $3,
+        color = $4
+      WHERE id = $5
+      RETURNING ${FOLDER_SELECT_COLUMNS}`,
+            [trimmedName, updatedAt, actingUserId, serializeSidebarColor(color), id]
+          )
+        : await this.query<FolderSqlRow>(
+            `UPDATE folders
       SET name = $1,
         updated_at = $2,
         updated_by_user_id = $3
       WHERE id = $4
       RETURNING ${FOLDER_SELECT_COLUMNS}`,
-      [trimmedName, updatedAt, actingUserId, id]
-    );
+            [trimmedName, updatedAt, actingUserId, id]
+          );
     const row = result.rows[0];
     if (!row) {
       throw new Error('Folder not found');
@@ -1935,6 +2006,7 @@ export class PostgresDatabase implements IDatabase {
   async saveDocument(input: SaveDocumentInput, actingUserId: string): Promise<DocumentRecord> {
     const trimmedName = trimRequiredName(input.name, 'Document name');
     const folderId = input.folderId ?? null;
+    const serializedColor = serializeSidebarColor(input.color ?? null);
     const now = new Date();
 
     if (folderId != null) {
@@ -1955,10 +2027,20 @@ export class PostgresDatabase implements IDatabase {
           folder_id = $2,
           name = $3,
           content = $4,
-          updated_at = $5,
-          updated_by_user_id = $6
-        WHERE id = $7`,
-        [input.collectionId, folderId, trimmedName, input.content, now, actingUserId, input.id]
+          color = $5,
+          updated_at = $6,
+          updated_by_user_id = $7
+        WHERE id = $8`,
+        [
+          input.collectionId,
+          folderId,
+          trimmedName,
+          input.content,
+          serializedColor,
+          now,
+          actingUserId,
+          input.id
+        ]
       );
 
       if ((result.rowCount ?? 0) > 0) {
@@ -1990,12 +2072,13 @@ export class PostgresDatabase implements IDatabase {
         folder_id,
         name,
         content,
+        color,
         sort_order,
         created_at,
         updated_at,
         created_by_user_id,
         updated_by_user_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING ${DOCUMENT_SELECT_COLUMNS}`,
       [
         id,
@@ -2003,6 +2086,7 @@ export class PostgresDatabase implements IDatabase {
         folderId,
         trimmedName,
         input.content,
+        serializedColor,
         maxOrder + 1,
         now,
         now,

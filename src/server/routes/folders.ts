@@ -140,7 +140,12 @@ export async function registerFolderRoutes(app: FastifyInstance, db: IDatabase):
           return;
         }
 
-        const folder = await db.renameFolder(request.params.id, request.body.name, user.id);
+        const folder = await db.renameFolder(
+          request.params.id,
+          request.body.name,
+          user.id,
+          request.body.color
+        );
         return reply.send(serializeFolder(folder));
       } catch (error) {
         if (handleDbError(reply, error)) {

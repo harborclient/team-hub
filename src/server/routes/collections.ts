@@ -132,7 +132,8 @@ export async function registerCollectionRoutes(app: FastifyInstance, db: IDataba
           request.body.preRequestScript,
           request.body.postRequestScript,
           request.body.auth,
-          user.id
+          user.id,
+          request.body.color
         );
         return reply.send(serializeCollection(collection));
       } catch (error) {

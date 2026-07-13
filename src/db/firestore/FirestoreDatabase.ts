@@ -56,6 +56,7 @@ import type { IDatabase } from '#/db/IDatabase.js';
 import { buildDefaultRunResultLabel, parseRunResultPayload } from '#/db/runResultPayload.js';
 import { generateApiToken } from '#/server/auth/apiTokens.js';
 import { trimRequiredName } from '#/db/trimRequiredName.js';
+import { serializeSidebarColor } from '#/db/sidebarColor.js';
 import { assertUserNameAvailable, assertUserNameNotReserved } from '#/db/userNameValidation.js';
 import type {
   ApiTokenRecord,
@@ -906,7 +907,8 @@ export class FirestoreDatabase implements IDatabase {
     preRequestScript: string,
     postRequestScript: string,
     auth: AuthConfig,
-    actingUserId: string
+    actingUserId: string,
+    color?: string | null
   ): Promise<CollectionRecord> {
     const trimmedName = trimRequiredName(name, 'Collection name');
     const updatedAt = new Date();
@@ -917,6 +919,7 @@ export class FirestoreDatabase implements IDatabase {
     }
 
     const existing = snapshot.data() as FirestoreCollectionDocument;
+    const serializedColor = color !== undefined ? serializeSidebarColor(color) : existing.color;
     const updated: FirestoreCollectionDocument = {
       ...existing,
       name: trimmedName,
@@ -926,7 +929,8 @@ export class FirestoreDatabase implements IDatabase {
       preRequestScript,
       postRequestScript,
       updatedAt,
-      updatedByUserId: actingUserId
+      updatedByUserId: actingUserId,
+      ...(color !== undefined ? { color: serializedColor } : {})
     };
 
     await docRef.update({
@@ -937,7 +941,8 @@ export class FirestoreDatabase implements IDatabase {
       preRequestScript,
       postRequestScript,
       updatedAt,
-      updatedByUserId: actingUserId
+      updatedByUserId: actingUserId,
+      ...(color !== undefined ? { color: serializedColor } : {})
     });
 
     await this.recordAuditEntry(actingUserId, 'update', 'collection', id);
@@ -1075,7 +1080,8 @@ export class FirestoreDatabase implements IDatabase {
     id: string,
     name: string,
     variables: Variable[],
-    actingUserId: string
+    actingUserId: string,
+    color?: string | null
   ): Promise<EnvironmentRecord> {
     const trimmedName = trimRequiredName(name, 'Environment name');
     const updatedAt = new Date();
@@ -1086,19 +1092,22 @@ export class FirestoreDatabase implements IDatabase {
     }
 
     const existing = snapshot.data() as FirestoreEnvironmentDocument;
+    const serializedColor = color !== undefined ? serializeSidebarColor(color) : existing.color;
     const updated: FirestoreEnvironmentDocument = {
       ...existing,
       name: trimmedName,
       variables,
       updatedAt,
-      updatedByUserId: actingUserId
+      updatedByUserId: actingUserId,
+      ...(color !== undefined ? { color: serializedColor } : {})
     };
 
     await docRef.update({
       name: trimmedName,
       variables,
       updatedAt,
-      updatedByUserId: actingUserId
+      updatedByUserId: actingUserId,
+      ...(color !== undefined ? { color: serializedColor } : {})
     });
 
     await this.recordAuditEntry(actingUserId, 'update', 'environment', id);
@@ -1367,6 +1376,7 @@ export class FirestoreDatabase implements IDatabase {
   async saveRequest(input: SaveRequestInput, actingUserId: string): Promise<SavedRequestRecord> {
     const trimmedName = trimRequiredName(input.name, 'Request name');
     const folderId = input.folderId ?? null;
+    const serializedColor = serializeSidebarColor(input.color ?? null);
     const now = new Date();
     const client = this.requireClient();
 
@@ -1402,6 +1412,7 @@ export class FirestoreDatabase implements IDatabase {
           preRequestScript: input.preRequestScript,
           postRequestScript: input.postRequestScript,
           comment: input.comment,
+          color: serializedColor,
           updatedAt: now,
           updatedByUserId: actingUserId
         };
@@ -1420,6 +1431,7 @@ export class FirestoreDatabase implements IDatabase {
           preRequestScript: input.preRequestScript,
           postRequestScript: input.postRequestScript,
           comment: input.comment,
+          color: serializedColor,
           updatedAt: now,
           updatedByUserId: actingUserId
         });
@@ -1448,6 +1460,7 @@ export class FirestoreDatabase implements IDatabase {
       preRequestScript: input.preRequestScript,
       postRequestScript: input.postRequestScript,
       comment: input.comment,
+      color: serializedColor,
       sortOrder: maxOrder + 1,
       createdAt: now,
       updatedAt: now,
@@ -1546,7 +1559,12 @@ export class FirestoreDatabase implements IDatabase {
    * @param name - New display name.
    * @param actingUserId - User performing the rename action.
    */
-  async renameFolder(id: string, name: string, actingUserId: string): Promise<FolderRecord> {
+  async renameFolder(
+    id: string,
+    name: string,
+    actingUserId: string,
+    color?: string | null
+  ): Promise<FolderRecord> {
     const trimmedName = trimRequiredName(name, 'Folder name');
     const updatedAt = new Date();
     const docRef = this.requireClient().collection(FOLDERS_COLLECTION).doc(id);
@@ -1556,13 +1574,20 @@ export class FirestoreDatabase implements IDatabase {
     }
 
     const existing = snapshot.data() as FirestoreFolderDocument;
-    await docRef.update({ name: trimmedName, updatedAt, updatedByUserId: actingUserId });
+    const serializedColor = color !== undefined ? serializeSidebarColor(color) : existing.color;
+    await docRef.update({
+      name: trimmedName,
+      updatedAt,
+      updatedByUserId: actingUserId,
+      ...(color !== undefined ? { color: serializedColor } : {})
+    });
     await this.recordAuditEntry(actingUserId, 'update', 'folder', id);
     return mapFirestoreFolder(id, {
       ...existing,
       name: trimmedName,
       updatedAt,
-      updatedByUserId: actingUserId
+      updatedByUserId: actingUserId,
+      ...(color !== undefined ? { color: serializedColor } : {})
     });
   }
 
@@ -1807,6 +1832,7 @@ export class FirestoreDatabase implements IDatabase {
   async saveDocument(input: SaveDocumentInput, actingUserId: string): Promise<DocumentRecord> {
     const trimmedName = trimRequiredName(input.name, 'Document name');
     const folderId = input.folderId ?? null;
+    const serializedColor = serializeSidebarColor(input.color ?? null);
     const now = new Date();
     const client = this.requireClient();
 
@@ -1833,6 +1859,7 @@ export class FirestoreDatabase implements IDatabase {
           folderId,
           name: trimmedName,
           content: input.content,
+          color: serializedColor,
           updatedAt: now,
           updatedByUserId: actingUserId
         };
@@ -1842,6 +1869,7 @@ export class FirestoreDatabase implements IDatabase {
           folderId,
           name: trimmedName,
           content: input.content,
+          color: serializedColor,
           updatedAt: now,
           updatedByUserId: actingUserId
         });
@@ -1861,6 +1889,7 @@ export class FirestoreDatabase implements IDatabase {
       folderId,
       name: trimmedName,
       content: input.content,
+      color: serializedColor,
       sortOrder: maxOrder + 1,
       createdAt: now,
       updatedAt: now,

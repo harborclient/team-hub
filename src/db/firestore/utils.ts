@@ -29,6 +29,7 @@ import type {
   FirestoreRunResultDocument,
   FirestoreUserDocument
 } from '#/db/firestore/types.js';
+import { readSidebarColor } from '#/db/sidebarColor.js';
 
 /**
  * Parses a stored entity type string into a typed {@link AuditEntityType}.
@@ -202,7 +203,8 @@ export function mapFirestoreCollection(
     updatedAt: data.updatedAt ?? data.createdAt,
     createdByUserId: data.createdByUserId ?? null,
     updatedByUserId: data.updatedByUserId ?? null,
-    deletionLocked: data.deletionLocked ?? false
+    deletionLocked: data.deletionLocked ?? false,
+    color: readSidebarColor(data.color)
   };
 }
 
@@ -225,7 +227,8 @@ export function mapFirestoreEnvironment(
     updatedAt: data.updatedAt ?? data.createdAt,
     createdByUserId: data.createdByUserId ?? null,
     updatedByUserId: data.updatedByUserId ?? null,
-    deletionLocked: data.deletionLocked ?? false
+    deletionLocked: data.deletionLocked ?? false,
+    color: readSidebarColor(data.color)
   };
 }
 
@@ -267,7 +270,8 @@ export function mapFirestoreFolder(id: string, data: FirestoreFolderDocument): F
     createdAt: data.createdAt,
     updatedAt: data.updatedAt ?? data.createdAt,
     createdByUserId: data.createdByUserId ?? null,
-    updatedByUserId: data.updatedByUserId ?? null
+    updatedByUserId: data.updatedByUserId ?? null,
+    color: readSidebarColor(data.color)
   };
 }
 
@@ -301,7 +305,8 @@ export function mapFirestoreRequest(
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
     createdByUserId: data.createdByUserId ?? null,
-    updatedByUserId: data.updatedByUserId ?? null
+    updatedByUserId: data.updatedByUserId ?? null,
+    color: readSidebarColor(data.color)
   };
 }
 
@@ -323,7 +328,8 @@ export function mapFirestoreDocument(id: string, data: FirestoreDocumentDocument
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
     createdByUserId: data.createdByUserId ?? null,
-    updatedByUserId: data.updatedByUserId ?? null
+    updatedByUserId: data.updatedByUserId ?? null,
+    color: readSidebarColor(data.color)
   };
 }
 

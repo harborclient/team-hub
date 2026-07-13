@@ -14,7 +14,8 @@ const sampleEnvironment = {
   createdAt: new Date('2026-01-02T00:00:00.000Z'),
   updatedAt: new Date('2026-01-02T00:00:00.000Z'),
   ...sampleAttribution,
-  deletionLocked: false
+  deletionLocked: false,
+  color: null
 };
 
 describe('environment routes', () => {

@@ -27,7 +27,8 @@ const sampleCollection = {
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   ...sampleAttribution,
-  deletionLocked: false
+  deletionLocked: false,
+  color: null
 };
 
 const sampleEnvironment = {
@@ -37,7 +38,8 @@ const sampleEnvironment = {
   createdAt: new Date('2026-01-02T00:00:00.000Z'),
   updatedAt: new Date('2026-01-02T00:00:00.000Z'),
   ...sampleAttribution,
-  deletionLocked: false
+  deletionLocked: false,
+  color: null
 };
 
 const sampleFolder = {
@@ -47,7 +49,8 @@ const sampleFolder = {
   sortOrder: 0,
   createdAt: new Date('2026-01-03T00:00:00.000Z'),
   updatedAt: new Date('2026-01-03T00:00:00.000Z'),
-  ...sampleAttribution
+  ...sampleAttribution,
+  color: null
 };
 
 const sampleRequest = {
@@ -68,7 +71,8 @@ const sampleRequest = {
   sortOrder: 0,
   createdAt: new Date('2026-01-04T00:00:00.000Z'),
   updatedAt: new Date('2026-01-05T00:00:00.000Z'),
-  ...sampleAttribution
+  ...sampleAttribution,
+  color: null
 };
 
 const sampleSnippet = {

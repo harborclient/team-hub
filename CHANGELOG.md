@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add sidebar color support across collections, environments, folders, requests, and documents. (`872135d`)
 - Add document management functionality to the API. (`e03b05c`)
 
 ## 0.4.5 - 2026-07-10

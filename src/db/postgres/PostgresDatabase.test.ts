@@ -221,7 +221,8 @@ describe('PostgresDatabase collections', () => {
           updated_at: createdAt,
           created_by_user_id: 'user-1',
           updated_by_user_id: 'user-1',
-          deletion_locked: false
+          deletion_locked: false,
+          color: null
         }
       ],
       rowCount: 1

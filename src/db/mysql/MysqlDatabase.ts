@@ -35,6 +35,7 @@ import { mysqlConfigSchema } from '#/db/mysql/schemas.js';
 import type { MysqlDatabaseConfig } from '#/db/mysql/types.js';
 import { createSystemUserInput, SYSTEM_USER_NAME } from '#/db/systemUsers.js';
 import { trimRequiredName } from '#/db/trimRequiredName.js';
+import { serializeSidebarColor } from '#/db/sidebarColor.js';
 import { assertUserNameAvailable, assertUserNameNotReserved } from '#/db/userNameValidation.js';
 import {
   API_TOKEN_SELECT_COLUMNS,
@@ -1014,12 +1015,40 @@ export class MysqlDatabase implements IDatabase {
     preRequestScript: string,
     postRequestScript: string,
     auth: AuthConfig,
-    actingUserId: string
+    actingUserId: string,
+    color?: string | null
   ): Promise<CollectionRecord> {
     const trimmedName = trimRequiredName(name, 'Collection name');
     const updatedAt = new Date();
-    const result = await this.executeStatement(
-      `UPDATE collections
+    const result =
+      color !== undefined
+        ? await this.executeStatement(
+            `UPDATE collections
+      SET name = ?,
+        variables = ?,
+        headers = ?,
+        auth = ?,
+        pre_request_script = ?,
+        post_request_script = ?,
+        updated_at = ?,
+        updated_by_user_id = ?,
+        color = ?
+      WHERE id = ?`,
+            [
+              trimmedName,
+              JSON.stringify(variables),
+              JSON.stringify(headers),
+              JSON.stringify(auth),
+              preRequestScript,
+              postRequestScript,
+              updatedAt,
+              actingUserId,
+              serializeSidebarColor(color),
+              id
+            ]
+          )
+        : await this.executeStatement(
+            `UPDATE collections
       SET name = ?,
         variables = ?,
         headers = ?,
@@ -1029,18 +1058,18 @@ export class MysqlDatabase implements IDatabase {
         updated_at = ?,
         updated_by_user_id = ?
       WHERE id = ?`,
-      [
-        trimmedName,
-        JSON.stringify(variables),
-        JSON.stringify(headers),
-        JSON.stringify(auth),
-        preRequestScript,
-        postRequestScript,
-        updatedAt,
-        actingUserId,
-        id
-      ]
-    );
+            [
+              trimmedName,
+              JSON.stringify(variables),
+              JSON.stringify(headers),
+              JSON.stringify(auth),
+              preRequestScript,
+              postRequestScript,
+              updatedAt,
+              actingUserId,
+              id
+            ]
+          );
 
     if ((result.affectedRows ?? 0) === 0) {
       throw new Error('Collection not found');
@@ -1182,19 +1211,39 @@ export class MysqlDatabase implements IDatabase {
     id: string,
     name: string,
     variables: Variable[],
-    actingUserId: string
+    actingUserId: string,
+    color?: string | null
   ): Promise<EnvironmentRecord> {
     const trimmedName = trimRequiredName(name, 'Environment name');
     const updatedAt = new Date();
-    const result = await this.executeStatement(
-      `UPDATE environments
+    const result =
+      color !== undefined
+        ? await this.executeStatement(
+            `UPDATE environments
+      SET name = ?,
+        variables = ?,
+        updated_at = ?,
+        updated_by_user_id = ?,
+        color = ?
+      WHERE id = ?`,
+            [
+              trimmedName,
+              JSON.stringify(variables),
+              updatedAt,
+              actingUserId,
+              serializeSidebarColor(color),
+              id
+            ]
+          )
+        : await this.executeStatement(
+            `UPDATE environments
       SET name = ?,
         variables = ?,
         updated_at = ?,
         updated_by_user_id = ?
       WHERE id = ?`,
-      [trimmedName, JSON.stringify(variables), updatedAt, actingUserId, id]
-    );
+            [trimmedName, JSON.stringify(variables), updatedAt, actingUserId, id]
+          );
 
     if ((result.affectedRows ?? 0) === 0) {
       throw new Error('Environment not found');
@@ -1488,6 +1537,7 @@ export class MysqlDatabase implements IDatabase {
     const params = JSON.stringify(input.params);
     const auth = JSON.stringify(input.auth);
     const folderId = input.folderId ?? null;
+    const serializedColor = serializeSidebarColor(input.color ?? null);
     const now = new Date();
 
     if (folderId != null) {
@@ -1517,6 +1567,7 @@ export class MysqlDatabase implements IDatabase {
           pre_request_script = ?,
           post_request_script = ?,
           comment = ?,
+          color = ?,
           updated_at = ?,
           updated_by_user_id = ?
         WHERE id = ?`,
@@ -1534,6 +1585,7 @@ export class MysqlDatabase implements IDatabase {
           input.preRequestScript,
           input.postRequestScript,
           input.comment,
+          serializedColor,
           now,
           actingUserId,
           input.id
@@ -1579,12 +1631,13 @@ export class MysqlDatabase implements IDatabase {
         pre_request_script,
         post_request_script,
         comment,
+        color,
         sort_order,
         created_at,
         updated_at,
         created_by_user_id,
         updated_by_user_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         input.collectionId,
@@ -1600,6 +1653,7 @@ export class MysqlDatabase implements IDatabase {
         input.preRequestScript,
         input.postRequestScript,
         input.comment,
+        serializedColor,
         maxOrder + 1,
         now,
         now,
@@ -1716,17 +1770,33 @@ export class MysqlDatabase implements IDatabase {
    * @param name - New display name.
    * @param actingUserId - User performing the rename action.
    */
-  async renameFolder(id: string, name: string, actingUserId: string): Promise<FolderRecord> {
+  async renameFolder(
+    id: string,
+    name: string,
+    actingUserId: string,
+    color?: string | null
+  ): Promise<FolderRecord> {
     const trimmedName = trimRequiredName(name, 'Folder name');
     const updatedAt = new Date();
-    const result = await this.executeStatement(
-      `UPDATE folders
+    const result =
+      color !== undefined
+        ? await this.executeStatement(
+            `UPDATE folders
+      SET name = ?,
+        updated_at = ?,
+        updated_by_user_id = ?,
+        color = ?
+      WHERE id = ?`,
+            [trimmedName, updatedAt, actingUserId, serializeSidebarColor(color), id]
+          )
+        : await this.executeStatement(
+            `UPDATE folders
       SET name = ?,
         updated_at = ?,
         updated_by_user_id = ?
       WHERE id = ?`,
-      [trimmedName, updatedAt, actingUserId, id]
-    );
+            [trimmedName, updatedAt, actingUserId, id]
+          );
 
     if ((result.affectedRows ?? 0) === 0) {
       throw new Error('Folder not found');
@@ -2000,6 +2070,7 @@ export class MysqlDatabase implements IDatabase {
   async saveDocument(input: SaveDocumentInput, actingUserId: string): Promise<DocumentRecord> {
     const trimmedName = trimRequiredName(input.name, 'Document name');
     const folderId = input.folderId ?? null;
+    const serializedColor = serializeSidebarColor(input.color ?? null);
     const now = new Date();
 
     if (folderId != null) {
@@ -2020,10 +2091,20 @@ export class MysqlDatabase implements IDatabase {
           folder_id = ?,
           name = ?,
           content = ?,
+          color = ?,
           updated_at = ?,
           updated_by_user_id = ?
         WHERE id = ?`,
-        [input.collectionId, folderId, trimmedName, input.content, now, actingUserId, input.id]
+        [
+          input.collectionId,
+          folderId,
+          trimmedName,
+          input.content,
+          serializedColor,
+          now,
+          actingUserId,
+          input.id
+        ]
       );
 
       if ((result.affectedRows ?? 0) > 0) {
@@ -2056,18 +2137,20 @@ export class MysqlDatabase implements IDatabase {
         folder_id,
         name,
         content,
+        color,
         sort_order,
         created_at,
         updated_at,
         created_by_user_id,
         updated_by_user_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         input.collectionId,
         folderId,
         trimmedName,
         input.content,
+        serializedColor,
         maxOrder + 1,
         now,
         now,
