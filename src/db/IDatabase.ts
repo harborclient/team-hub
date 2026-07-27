@@ -279,7 +279,7 @@ export interface IDatabase {
    * @param postRequestScript - Script run after each request in the collection.
    * @param auth - Default Authorization settings for requests in the collection.
    * @param actingUserId - User performing the update action.
-   * @param color - Optional sidebar color; omit to leave the stored value unchanged.
+   * @param marker - Optional sidebar marker; omit to leave the stored value unchanged.
    * @returns The updated collection.
    */
   updateCollection(
@@ -291,7 +291,7 @@ export interface IDatabase {
     postRequestScript: string,
     auth: AuthConfig,
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<CollectionRecord>;
 
   /**
@@ -347,7 +347,7 @@ export interface IDatabase {
    * @param name - New display name.
    * @param variables - Environment-scoped variables.
    * @param actingUserId - User performing the update action.
-   * @param color - Optional sidebar color; omit to leave the stored value unchanged.
+   * @param marker - Optional sidebar marker; omit to leave the stored value unchanged.
    * @returns The updated environment.
    */
   updateEnvironment(
@@ -355,7 +355,7 @@ export interface IDatabase {
     name: string,
     variables: Variable[],
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<EnvironmentRecord>;
 
   /**
@@ -515,9 +515,15 @@ export interface IDatabase {
    * @param collectionId - Collection to add the folder to.
    * @param name - Display name for the folder.
    * @param actingUserId - User performing the create action.
+   * @param parentFolderId - Parent folder, or null/omitted for collection root.
    * @returns The newly created folder.
    */
-  createFolder(collectionId: string, name: string, actingUserId: string): Promise<FolderRecord>;
+  createFolder(
+    collectionId: string,
+    name: string,
+    actingUserId: string,
+    parentFolderId?: string | null
+  ): Promise<FolderRecord>;
 
   /**
    * Renames a folder.
@@ -525,14 +531,14 @@ export interface IDatabase {
    * @param id - Folder ID to rename.
    * @param name - New display name.
    * @param actingUserId - User performing the rename action.
-   * @param color - Optional sidebar color; omit to leave the stored value unchanged.
+   * @param marker - Optional sidebar marker; omit to leave the stored value unchanged.
    * @returns The updated folder.
    */
   renameFolder(
     id: string,
     name: string,
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<FolderRecord>;
 
   /**
@@ -544,14 +550,32 @@ export interface IDatabase {
   deleteFolder(id: string, actingUserId: string): Promise<void>;
 
   /**
+   * Moves a folder to another parent and optionally positions it among siblings.
+   *
+   * @param id - Folder ID to move.
+   * @param parentFolderId - Destination parent, or null for collection root.
+   * @param sortOrder - Optional zero-based destination sibling index.
+   * @param actingUserId - User performing the move action.
+   * @returns The updated folder.
+   */
+  moveFolder(
+    id: string,
+    parentFolderId: string | null,
+    sortOrder: number | undefined,
+    actingUserId: string
+  ): Promise<FolderRecord>;
+
+  /**
    * Reorders folders within a collection.
    *
    * @param collectionId - Collection containing the folders.
+   * @param parentFolderId - Parent folder, or null for collection root.
    * @param orderedFolderIds - Folder IDs in desired order.
    * @param actingUserId - User performing the reorder action.
    */
   reorderFolders(
     collectionId: string,
+    parentFolderId: string | null,
     orderedFolderIds: string[],
     actingUserId: string
   ): Promise<void>;

@@ -26,7 +26,7 @@ describe('mapCollectionSqlRow', () => {
       created_by_user_id: 'user-1',
       updated_by_user_id: 'user-1',
       deletion_locked: false,
-      color: null
+      marker: null
     });
 
     expect(record).toEqual({
@@ -46,11 +46,11 @@ describe('mapCollectionSqlRow', () => {
       createdByUserId: 'user-1',
       updatedByUserId: 'user-1',
       deletionLocked: false,
-      color: null
+      marker: null
     });
   });
 
-  it('reads stored sidebar colors from SQL rows', () => {
+  it('reads stored sidebar markers from SQL rows', () => {
     const createdAt = new Date('2026-01-01T00:00:00.000Z');
     const record = mapCollectionSqlRow({
       id: 'collection-1',
@@ -65,10 +65,10 @@ describe('mapCollectionSqlRow', () => {
       created_by_user_id: 'user-1',
       updated_by_user_id: 'user-1',
       deletion_locked: false,
-      color: ' #32D2E2 '
+      marker: ' #32D2E2 '
     });
 
-    expect(record.color).toBe('#32D2E2');
+    expect(record.marker).toBe('#32D2E2');
   });
 });
 
@@ -87,7 +87,7 @@ describe('mapEnvironmentSqlRow', () => {
       created_by_user_id: 'user-1',
       updated_by_user_id: 'user-2',
       deletion_locked: true,
-      color: null
+      marker: null
     });
 
     expect(record).toEqual({
@@ -99,7 +99,7 @@ describe('mapEnvironmentSqlRow', () => {
       createdByUserId: 'user-1',
       updatedByUserId: 'user-2',
       deletionLocked: true,
-      color: null
+      marker: null
     });
   });
 });
@@ -111,25 +111,27 @@ describe('mapFolderSqlRow', () => {
     const record = mapFolderSqlRow({
       id: 'folder-1',
       collection_id: 'collection-1',
+      parent_folder_id: 'folder-parent',
       name: 'Auth',
       sort_order: 2,
       created_at: createdAt,
       updated_at: updatedAt,
       created_by_user_id: null,
       updated_by_user_id: 'user-1',
-      color: null
+      marker: null
     });
 
     expect(record).toEqual({
       id: 'folder-1',
       collectionId: 'collection-1',
+      parentFolderId: 'folder-parent',
       name: 'Auth',
       sortOrder: 2,
       createdAt,
       updatedAt,
       createdByUserId: null,
       updatedByUserId: 'user-1',
-      color: null
+      marker: null
     });
   });
 });
@@ -158,7 +160,7 @@ describe('mapRequestSqlRow', () => {
       updated_at: updatedAt,
       created_by_user_id: 'user-1',
       updated_by_user_id: 'user-1',
-      color: null
+      marker: null
     });
 
     expect(record.folderId).toBeNull();

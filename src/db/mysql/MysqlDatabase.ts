@@ -35,7 +35,7 @@ import { mysqlConfigSchema } from '#/db/mysql/schemas.js';
 import type { MysqlDatabaseConfig } from '#/db/mysql/types.js';
 import { createSystemUserInput, SYSTEM_USER_NAME } from '#/db/systemUsers.js';
 import { trimRequiredName } from '#/db/trimRequiredName.js';
-import { serializeSidebarColor } from '#/db/sidebarColor.js';
+import { serializeSidebarMarker } from '#/db/sidebarMarker.js';
 import { assertUserNameAvailable, assertUserNameNotReserved } from '#/db/userNameValidation.js';
 import {
   API_TOKEN_SELECT_COLUMNS,
@@ -1016,12 +1016,12 @@ export class MysqlDatabase implements IDatabase {
     postRequestScript: string,
     auth: AuthConfig,
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<CollectionRecord> {
     const trimmedName = trimRequiredName(name, 'Collection name');
     const updatedAt = new Date();
     const result =
-      color !== undefined
+      marker !== undefined
         ? await this.executeStatement(
             `UPDATE collections
       SET name = ?,
@@ -1032,7 +1032,7 @@ export class MysqlDatabase implements IDatabase {
         post_request_script = ?,
         updated_at = ?,
         updated_by_user_id = ?,
-        color = ?
+        marker = ?
       WHERE id = ?`,
             [
               trimmedName,
@@ -1043,7 +1043,7 @@ export class MysqlDatabase implements IDatabase {
               postRequestScript,
               updatedAt,
               actingUserId,
-              serializeSidebarColor(color),
+              serializeSidebarMarker(marker),
               id
             ]
           )
@@ -1212,26 +1212,26 @@ export class MysqlDatabase implements IDatabase {
     name: string,
     variables: Variable[],
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<EnvironmentRecord> {
     const trimmedName = trimRequiredName(name, 'Environment name');
     const updatedAt = new Date();
     const result =
-      color !== undefined
+      marker !== undefined
         ? await this.executeStatement(
             `UPDATE environments
       SET name = ?,
         variables = ?,
         updated_at = ?,
         updated_by_user_id = ?,
-        color = ?
+        marker = ?
       WHERE id = ?`,
             [
               trimmedName,
               JSON.stringify(variables),
               updatedAt,
               actingUserId,
-              serializeSidebarColor(color),
+              serializeSidebarMarker(marker),
               id
             ]
           )
@@ -1537,7 +1537,7 @@ export class MysqlDatabase implements IDatabase {
     const params = JSON.stringify(input.params);
     const auth = JSON.stringify(input.auth);
     const folderId = input.folderId ?? null;
-    const serializedColor = serializeSidebarColor(input.color ?? null);
+    const serializedMarker = serializeSidebarMarker(input.marker ?? null);
     const now = new Date();
 
     if (folderId != null) {
@@ -1567,7 +1567,7 @@ export class MysqlDatabase implements IDatabase {
           pre_request_script = ?,
           post_request_script = ?,
           comment = ?,
-          color = ?,
+          marker = ?,
           updated_at = ?,
           updated_by_user_id = ?
         WHERE id = ?`,
@@ -1585,7 +1585,7 @@ export class MysqlDatabase implements IDatabase {
           input.preRequestScript,
           input.postRequestScript,
           input.comment,
-          serializedColor,
+          serializedMarker,
           now,
           actingUserId,
           input.id
@@ -1631,7 +1631,7 @@ export class MysqlDatabase implements IDatabase {
         pre_request_script,
         post_request_script,
         comment,
-        color,
+        marker,
         sort_order,
         created_at,
         updated_at,
@@ -1653,7 +1653,7 @@ export class MysqlDatabase implements IDatabase {
         input.preRequestScript,
         input.postRequestScript,
         input.comment,
-        serializedColor,
+        serializedMarker,
         maxOrder + 1,
         now,
         now,
@@ -1724,14 +1724,23 @@ export class MysqlDatabase implements IDatabase {
   async createFolder(
     collectionId: string,
     name: string,
-    actingUserId: string
+    actingUserId: string,
+    parentFolderId: string | null = null
   ): Promise<FolderRecord> {
     const trimmedName = trimRequiredName(name, 'Folder name');
+    if (parentFolderId != null) {
+      const parent = await this.findFolderById(parentFolderId);
+      if (!parent || parent.collectionId !== collectionId) {
+        throw new Error('Parent folder not found in collection');
+      }
+    }
     const id = randomUUID();
     const now = new Date();
     const maxRows = await this.queryRows<{ max_order: number | null } & RowDataPacket>(
-      'SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM folders WHERE collection_id = ?',
-      [collectionId]
+      `SELECT COALESCE(MAX(sort_order), -1) AS max_order
+       FROM folders
+       WHERE collection_id = ? AND parent_folder_id <=> ?`,
+      [collectionId, parentFolderId]
     );
     const maxOrder = maxRows[0]?.max_order ?? -1;
 
@@ -1739,14 +1748,25 @@ export class MysqlDatabase implements IDatabase {
       `INSERT INTO folders (
         id,
         collection_id,
+        parent_folder_id,
         name,
         sort_order,
         created_at,
         updated_at,
         created_by_user_id,
         updated_by_user_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, collectionId, trimmedName, maxOrder + 1, now, now, actingUserId, actingUserId]
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        collectionId,
+        parentFolderId,
+        trimmedName,
+        maxOrder + 1,
+        now,
+        now,
+        actingUserId,
+        actingUserId
+      ]
     );
 
     await this.recordAuditEntry(actingUserId, 'create', 'folder', id);
@@ -1774,20 +1794,20 @@ export class MysqlDatabase implements IDatabase {
     id: string,
     name: string,
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<FolderRecord> {
     const trimmedName = trimRequiredName(name, 'Folder name');
     const updatedAt = new Date();
     const result =
-      color !== undefined
+      marker !== undefined
         ? await this.executeStatement(
             `UPDATE folders
       SET name = ?,
         updated_at = ?,
         updated_by_user_id = ?,
-        color = ?
+        marker = ?
       WHERE id = ?`,
-            [trimmedName, updatedAt, actingUserId, serializeSidebarColor(color), id]
+            [trimmedName, updatedAt, actingUserId, serializeSidebarMarker(marker), id]
           )
         : await this.executeStatement(
             `UPDATE folders
@@ -1817,7 +1837,7 @@ export class MysqlDatabase implements IDatabase {
   }
 
   /**
-   * Deletes a folder and all requests inside it.
+   * Deletes a folder, its descendants, and their contents.
    *
    * @param id - Folder ID to delete.
    * @param actingUserId - User performing the delete action.
@@ -1825,12 +1845,36 @@ export class MysqlDatabase implements IDatabase {
   async deleteFolder(id: string, actingUserId: string): Promise<void> {
     await this.recordAuditEntry(actingUserId, 'delete', 'folder', id);
 
+    const root = await this.findFolderById(id);
+    if (!root) {
+      return;
+    }
+    const folders = await this.listFolders(root.collectionId);
+    const descendantIds = new Set<string>([id]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const folder of folders) {
+        if (
+          folder.parentFolderId != null &&
+          descendantIds.has(folder.parentFolderId) &&
+          !descendantIds.has(folder.id)
+        ) {
+          descendantIds.add(folder.id);
+          changed = true;
+        }
+      }
+    }
+    const ids = [...descendantIds];
+    const placeholders = ids.map(() => '?').join(', ');
     const connection = await this.requirePool().getConnection();
     try {
       await connection.beginTransaction();
-      await connection.execute('DELETE FROM documents WHERE folder_id = ?', [id]);
-      await connection.execute('DELETE FROM requests WHERE folder_id = ?', [id]);
-      await connection.execute('DELETE FROM folders WHERE id = ?', [id]);
+      await connection.execute(`DELETE FROM documents WHERE folder_id IN (${placeholders})`, ids);
+      await connection.execute(`DELETE FROM requests WHERE folder_id IN (${placeholders})`, ids);
+      for (const folderId of ids.reverse()) {
+        await connection.execute('DELETE FROM folders WHERE id = ?', [folderId]);
+      }
       await connection.commit();
     } catch (err) {
       await connection.rollback();
@@ -1841,7 +1885,68 @@ export class MysqlDatabase implements IDatabase {
   }
 
   /**
-   * Reorders folders within a collection.
+   * Moves a folder to a new parent and optional sibling position.
+   *
+   * @param id - Folder ID to move.
+   * @param parentFolderId - Destination parent, or null for collection root.
+   * @param sortOrder - Optional zero-based destination sibling index.
+   * @param actingUserId - User performing the move action.
+   */
+  async moveFolder(
+    id: string,
+    parentFolderId: string | null,
+    sortOrder: number | undefined,
+    actingUserId: string
+  ): Promise<FolderRecord> {
+    const folder = await this.findFolderById(id);
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+    const folders = await this.listFolders(folder.collectionId);
+    if (parentFolderId != null) {
+      let ancestor = folders.find((entry) => entry.id === parentFolderId);
+      if (!ancestor) {
+        throw new Error('Parent folder not found in collection');
+      }
+      while (ancestor) {
+        if (ancestor.id === id) {
+          throw new Error('Cannot move a folder inside itself or its descendants');
+        }
+        ancestor =
+          ancestor.parentFolderId == null
+            ? undefined
+            : folders.find((entry) => entry.id === ancestor?.parentFolderId);
+      }
+    }
+
+    const siblings = folders
+      .filter((entry) => entry.id !== id && entry.parentFolderId === parentFolderId)
+      .sort(
+        (left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name)
+      );
+    const index = Math.max(0, Math.min(sortOrder ?? siblings.length, siblings.length));
+    siblings.splice(index, 0, { ...folder, parentFolderId });
+    await this.executeStatement(
+      `UPDATE folders
+       SET parent_folder_id = ?, updated_at = ?, updated_by_user_id = ?
+       WHERE id = ?`,
+      [parentFolderId, new Date(), actingUserId, id]
+    );
+    await this.reorderFolders(
+      folder.collectionId,
+      parentFolderId,
+      siblings.map((entry) => entry.id),
+      actingUserId
+    );
+    const moved = await this.findFolderById(id);
+    if (!moved) {
+      throw new Error('Folder not found after move');
+    }
+    return moved;
+  }
+
+  /**
+   * Reorders sibling folders within a collection.
    *
    * @param collectionId - Collection containing the folders.
    * @param orderedFolderIds - Folder IDs in desired order.
@@ -1849,6 +1954,7 @@ export class MysqlDatabase implements IDatabase {
    */
   async reorderFolders(
     collectionId: string,
+    parentFolderId: string | null,
     orderedFolderIds: string[],
     actingUserId: string
   ): Promise<void> {
@@ -1862,8 +1968,8 @@ export class MysqlDatabase implements IDatabase {
           SET sort_order = ?,
             updated_at = ?,
             updated_by_user_id = ?
-          WHERE id = ? AND collection_id = ?`,
-          [index, updatedAt, actingUserId, orderedFolderIds[index], collectionId]
+          WHERE id = ? AND collection_id = ? AND parent_folder_id <=> ?`,
+          [index, updatedAt, actingUserId, orderedFolderIds[index], collectionId, parentFolderId]
         );
       }
       await connection.commit();
@@ -1875,6 +1981,7 @@ export class MysqlDatabase implements IDatabase {
     }
 
     await this.recordAuditEntry(actingUserId, 'reorder', 'collection', collectionId, {
+      parentFolderId,
       orderedFolderIds
     });
   }
@@ -2070,7 +2177,7 @@ export class MysqlDatabase implements IDatabase {
   async saveDocument(input: SaveDocumentInput, actingUserId: string): Promise<DocumentRecord> {
     const trimmedName = trimRequiredName(input.name, 'Document name');
     const folderId = input.folderId ?? null;
-    const serializedColor = serializeSidebarColor(input.color ?? null);
+    const serializedMarker = serializeSidebarMarker(input.marker ?? null);
     const now = new Date();
 
     if (folderId != null) {
@@ -2091,7 +2198,7 @@ export class MysqlDatabase implements IDatabase {
           folder_id = ?,
           name = ?,
           content = ?,
-          color = ?,
+          marker = ?,
           updated_at = ?,
           updated_by_user_id = ?
         WHERE id = ?`,
@@ -2100,7 +2207,7 @@ export class MysqlDatabase implements IDatabase {
           folderId,
           trimmedName,
           input.content,
-          serializedColor,
+          serializedMarker,
           now,
           actingUserId,
           input.id
@@ -2137,7 +2244,7 @@ export class MysqlDatabase implements IDatabase {
         folder_id,
         name,
         content,
-        color,
+        marker,
         sort_order,
         created_at,
         updated_at,
@@ -2150,7 +2257,7 @@ export class MysqlDatabase implements IDatabase {
         folderId,
         trimmedName,
         input.content,
-        serializedColor,
+        serializedMarker,
         maxOrder + 1,
         now,
         now,

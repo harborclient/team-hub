@@ -753,9 +753,9 @@ export interface CollectionRecord {
   deletionLocked: boolean;
 
   /**
-   * Optional CSS color for sidebar visual grouping.
+   * Optional sidebar marker (CSS color string) for visual grouping.
    */
-  color: string | null;
+  marker: string | null;
 }
 
 /**
@@ -803,9 +803,9 @@ export interface EnvironmentRecord {
   deletionLocked: boolean;
 
   /**
-   * Optional CSS color for sidebar visual grouping.
+   * Optional sidebar marker (CSS color string) for visual grouping.
    */
-  color: string | null;
+  marker: string | null;
 }
 
 /**
@@ -973,6 +973,11 @@ export interface FolderRecord {
   collectionId: string;
 
   /**
+   * Parent folder identifier, or null at the collection root.
+   */
+  parentFolderId: string | null;
+
+  /**
    * Display name shown in the sidebar.
    */
   name: string;
@@ -1003,9 +1008,9 @@ export interface FolderRecord {
   updatedByUserId: string | null;
 
   /**
-   * Optional CSS color for sidebar visual grouping.
+   * Optional sidebar marker (CSS color string) for visual grouping.
    */
-  color: string | null;
+  marker: string | null;
 }
 
 /**
@@ -1108,9 +1113,9 @@ export interface SavedRequestRecord {
   updatedByUserId: string | null;
 
   /**
-   * Optional CSS color for sidebar visual grouping.
+   * Optional sidebar marker (CSS color string) for visual grouping.
    */
-  color: string | null;
+  marker: string | null;
 }
 
 /**
@@ -1188,9 +1193,9 @@ export interface SaveRequestInput {
   folderId?: string | null;
 
   /**
-   * Optional CSS color for sidebar visual grouping.
+   * Optional sidebar marker (CSS color string) for visual grouping.
    */
-  color?: string | null;
+  marker?: string | null;
 }
 
 /**
@@ -1248,9 +1253,9 @@ export interface DocumentRecord {
   updatedByUserId: string | null;
 
   /**
-   * Optional CSS color for sidebar visual grouping.
+   * Optional sidebar marker (CSS color string) for visual grouping.
    */
-  color: string | null;
+  marker: string | null;
 }
 
 /**
@@ -1283,9 +1288,9 @@ export interface SaveDocumentInput {
   folderId?: string | null;
 
   /**
-   * Optional CSS color for sidebar visual grouping.
+   * Optional sidebar marker (CSS color string) for visual grouping.
    */
-  color?: string | null;
+  marker?: string | null;
 }
 
 /**

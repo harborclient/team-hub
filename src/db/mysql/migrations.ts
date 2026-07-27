@@ -86,6 +86,7 @@ export const FOLDERS_MIGRATION_SQL = `
 CREATE TABLE IF NOT EXISTS folders (
   id VARCHAR(36) PRIMARY KEY,
   collection_id VARCHAR(36) NOT NULL,
+  parent_folder_id VARCHAR(36) NULL,
   name VARCHAR(255) NOT NULL,
   sort_order INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL,
@@ -93,6 +94,7 @@ CREATE TABLE IF NOT EXISTS folders (
   created_by_user_id VARCHAR(36) NULL,
   updated_by_user_id VARCHAR(36) NULL,
   FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_folder_id) REFERENCES folders(id) ON DELETE CASCADE,
   FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 )
@@ -232,6 +234,14 @@ ALTER TABLE folders
   ADD COLUMN IF NOT EXISTS updated_at DATETIME NULL,
   ADD COLUMN IF NOT EXISTS created_by_user_id VARCHAR(36) NULL,
   ADD COLUMN IF NOT EXISTS updated_by_user_id VARCHAR(36) NULL
+`.trim();
+
+/**
+ * Adds nested-folder ancestry to existing folder tables.
+ */
+export const FOLDERS_PARENT_MIGRATION_SQL = `
+ALTER TABLE folders
+  ADD COLUMN IF NOT EXISTS parent_folder_id VARCHAR(36) NULL
 `.trim();
 
 /**
@@ -414,44 +424,42 @@ CREATE TABLE IF NOT EXISTS user_invitations (
 `.trim();
 
 /**
- * Adds sidebar color column to collections when upgrading existing databases.
+ * Tables carrying an optional sidebar marker column.
  */
-export const COLLECTIONS_COLOR_MIGRATION_SQL = `
-ALTER TABLE collections
-  ADD COLUMN IF NOT EXISTS color TEXT;
-`.trim();
+const MARKER_TABLES = ['collections', 'folders', 'requests', 'documents', 'environments'] as const;
 
 /**
- * Adds sidebar color column to folders when upgrading existing databases.
+ * Builds the legacy `color` to `marker` column rename for a table.
+ *
+ * Databases predating the marker rename store the value in a `color` column;
+ * renaming in place keeps existing assignments. Uses the same conditional DDL
+ * extension as the rest of this file, so it requires MariaDB.
+ *
+ * @param table - Table whose legacy column is renamed.
+ * @returns Idempotent rename statement.
  */
-export const FOLDERS_COLOR_MIGRATION_SQL = `
-ALTER TABLE folders
-  ADD COLUMN IF NOT EXISTS color TEXT;
-`.trim();
+function buildMarkerRenameSql(table: string): string {
+  return `ALTER TABLE ${table} RENAME COLUMN IF EXISTS color TO marker`;
+}
 
 /**
- * Adds sidebar color column to requests when upgrading existing databases.
+ * Builds the sidebar marker column addition for a table.
+ *
+ * @param table - Table receiving the sidebar marker column.
+ * @returns Idempotent add-column statement.
  */
-export const REQUESTS_COLOR_MIGRATION_SQL = `
-ALTER TABLE requests
-  ADD COLUMN IF NOT EXISTS color TEXT;
-`.trim();
+function buildMarkerAddSql(table: string): string {
+  return `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS marker TEXT`;
+}
 
 /**
- * Adds sidebar color column to documents when upgrading existing databases.
+ * Sidebar marker migrations, renaming legacy columns before adding missing ones
+ * so an upgrade never lands on a table holding both `color` and `marker`.
  */
-export const DOCUMENTS_COLOR_MIGRATION_SQL = `
-ALTER TABLE documents
-  ADD COLUMN IF NOT EXISTS color TEXT;
-`.trim();
-
-/**
- * Adds sidebar color column to environments when upgrading existing databases.
- */
-export const ENVIRONMENTS_COLOR_MIGRATION_SQL = `
-ALTER TABLE environments
-  ADD COLUMN IF NOT EXISTS color TEXT;
-`.trim();
+export const MARKER_MIGRATIONS_SQL = [
+  ...MARKER_TABLES.map(buildMarkerRenameSql),
+  ...MARKER_TABLES.map(buildMarkerAddSql)
+];
 
 /**
  * Ordered MySQL migrations applied by {@link MysqlDatabase.migrate}.
@@ -471,6 +479,7 @@ export const MYSQL_MIGRATIONS = [
   COLLECTIONS_ATTRIBUTION_MIGRATION_SQL,
   ENVIRONMENTS_ATTRIBUTION_MIGRATION_SQL,
   FOLDERS_ATTRIBUTION_MIGRATION_SQL,
+  FOLDERS_PARENT_MIGRATION_SQL,
   REQUESTS_ATTRIBUTION_MIGRATION_SQL,
   USERS_ATTRIBUTION_MIGRATION_SQL,
   COLLECTIONS_BACKFILL_UPDATED_AT_SQL,
@@ -485,9 +494,5 @@ export const MYSQL_MIGRATIONS = [
   USERS_SNIPPET_ACCESS_BACKFILL_SQL,
   RUN_RESULTS_MIGRATION_SQL,
   USER_INVITATIONS_MIGRATION_SQL,
-  COLLECTIONS_COLOR_MIGRATION_SQL,
-  FOLDERS_COLOR_MIGRATION_SQL,
-  REQUESTS_COLOR_MIGRATION_SQL,
-  DOCUMENTS_COLOR_MIGRATION_SQL,
-  ENVIRONMENTS_COLOR_MIGRATION_SQL
+  ...MARKER_MIGRATIONS_SQL
 ];

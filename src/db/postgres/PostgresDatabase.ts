@@ -35,7 +35,7 @@ import { postgresConfigSchema } from '#/db/postgres/schemas.js';
 import type { PostgresDatabaseConfig } from '#/db/postgres/types.js';
 import { createSystemUserInput, SYSTEM_USER_NAME } from '#/db/systemUsers.js';
 import { trimRequiredName } from '#/db/trimRequiredName.js';
-import { serializeSidebarColor } from '#/db/sidebarColor.js';
+import { serializeSidebarMarker } from '#/db/sidebarMarker.js';
 import { assertUserNameAvailable, assertUserNameNotReserved } from '#/db/userNameValidation.js';
 import {
   API_TOKEN_SELECT_COLUMNS,
@@ -999,12 +999,12 @@ export class PostgresDatabase implements IDatabase {
     postRequestScript: string,
     auth: AuthConfig,
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<CollectionRecord> {
     const trimmedName = trimRequiredName(name, 'Collection name');
     const updatedAt = new Date();
     const result =
-      color !== undefined
+      marker !== undefined
         ? await this.query(
             `UPDATE collections
       SET name = $1,
@@ -1015,7 +1015,7 @@ export class PostgresDatabase implements IDatabase {
         post_request_script = $6,
         updated_at = $7,
         updated_by_user_id = $8,
-        color = $9
+        marker = $9
       WHERE id = $10`,
             [
               trimmedName,
@@ -1026,7 +1026,7 @@ export class PostgresDatabase implements IDatabase {
               postRequestScript,
               updatedAt,
               actingUserId,
-              serializeSidebarColor(color),
+              serializeSidebarMarker(marker),
               id
             ]
           )
@@ -1185,26 +1185,26 @@ export class PostgresDatabase implements IDatabase {
     name: string,
     variables: Variable[],
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<EnvironmentRecord> {
     const trimmedName = trimRequiredName(name, 'Environment name');
     const updatedAt = new Date();
     const result =
-      color !== undefined
+      marker !== undefined
         ? await this.query(
             `UPDATE environments
       SET name = $1,
         variables = $2,
         updated_at = $3,
         updated_by_user_id = $4,
-        color = $5
+        marker = $5
       WHERE id = $6`,
             [
               trimmedName,
               JSON.stringify(variables),
               updatedAt,
               actingUserId,
-              serializeSidebarColor(color),
+              serializeSidebarMarker(marker),
               id
             ]
           )
@@ -1491,7 +1491,7 @@ export class PostgresDatabase implements IDatabase {
     const params = JSON.stringify(input.params);
     const auth = JSON.stringify(input.auth);
     const folderId = input.folderId ?? null;
-    const serializedColor = serializeSidebarColor(input.color ?? null);
+    const serializedMarker = serializeSidebarMarker(input.marker ?? null);
     const now = new Date();
 
     if (folderId != null) {
@@ -1521,7 +1521,7 @@ export class PostgresDatabase implements IDatabase {
           pre_request_script = $11,
           post_request_script = $12,
           comment = $13,
-          color = $14,
+          marker = $14,
           updated_at = $15,
           updated_by_user_id = $16
         WHERE id = $17`,
@@ -1539,7 +1539,7 @@ export class PostgresDatabase implements IDatabase {
           input.preRequestScript,
           input.postRequestScript,
           input.comment,
-          serializedColor,
+          serializedMarker,
           now,
           actingUserId,
           input.id
@@ -1584,7 +1584,7 @@ export class PostgresDatabase implements IDatabase {
         pre_request_script,
         post_request_script,
         comment,
-        color,
+        marker,
         sort_order,
         created_at,
         updated_at,
@@ -1607,7 +1607,7 @@ export class PostgresDatabase implements IDatabase {
         input.preRequestScript,
         input.postRequestScript,
         input.comment,
-        serializedColor,
+        serializedMarker,
         maxOrder + 1,
         now,
         now,
@@ -1671,14 +1671,23 @@ export class PostgresDatabase implements IDatabase {
   async createFolder(
     collectionId: string,
     name: string,
-    actingUserId: string
+    actingUserId: string,
+    parentFolderId: string | null = null
   ): Promise<FolderRecord> {
     const trimmedName = trimRequiredName(name, 'Folder name');
+    if (parentFolderId != null) {
+      const parent = await this.findFolderById(parentFolderId);
+      if (!parent || parent.collectionId !== collectionId) {
+        throw new Error('Parent folder not found in collection');
+      }
+    }
     const id = randomUUID();
     const now = new Date();
     const maxResult = await this.query<{ max_order: number | null }>(
-      'SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM folders WHERE collection_id = $1',
-      [collectionId]
+      `SELECT COALESCE(MAX(sort_order), -1) AS max_order
+       FROM folders
+       WHERE collection_id = $1 AND parent_folder_id IS NOT DISTINCT FROM $2`,
+      [collectionId, parentFolderId]
     );
     const maxOrder = maxResult.rows[0]?.max_order ?? -1;
 
@@ -1686,15 +1695,26 @@ export class PostgresDatabase implements IDatabase {
       `INSERT INTO folders (
         id,
         collection_id,
+        parent_folder_id,
         name,
         sort_order,
         created_at,
         updated_at,
         created_by_user_id,
         updated_by_user_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING ${FOLDER_SELECT_COLUMNS}`,
-      [id, collectionId, trimmedName, maxOrder + 1, now, now, actingUserId, actingUserId]
+      [
+        id,
+        collectionId,
+        parentFolderId,
+        trimmedName,
+        maxOrder + 1,
+        now,
+        now,
+        actingUserId,
+        actingUserId
+      ]
     );
 
     const row = result.rows[0];
@@ -1718,21 +1738,21 @@ export class PostgresDatabase implements IDatabase {
     id: string,
     name: string,
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<FolderRecord> {
     const trimmedName = trimRequiredName(name, 'Folder name');
     const updatedAt = new Date();
     const result =
-      color !== undefined
+      marker !== undefined
         ? await this.query<FolderSqlRow>(
             `UPDATE folders
       SET name = $1,
         updated_at = $2,
         updated_by_user_id = $3,
-        color = $4
+        marker = $4
       WHERE id = $5
       RETURNING ${FOLDER_SELECT_COLUMNS}`,
-            [trimmedName, updatedAt, actingUserId, serializeSidebarColor(color), id]
+            [trimmedName, updatedAt, actingUserId, serializeSidebarMarker(marker), id]
           )
         : await this.query<FolderSqlRow>(
             `UPDATE folders
@@ -1754,7 +1774,7 @@ export class PostgresDatabase implements IDatabase {
   }
 
   /**
-   * Deletes a folder and all requests inside it.
+   * Deletes a folder and its descendants.
    *
    * @param id - Folder ID to delete.
    * @param actingUserId - User performing the delete action.
@@ -1762,23 +1782,74 @@ export class PostgresDatabase implements IDatabase {
   async deleteFolder(id: string, actingUserId: string): Promise<void> {
     await this.recordAuditEntry(actingUserId, 'delete', 'folder', id);
 
-    const client = await this.requirePool().connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('DELETE FROM documents WHERE folder_id = $1', [id]);
-      await client.query('DELETE FROM requests WHERE folder_id = $1', [id]);
-      await client.query('DELETE FROM folders WHERE id = $1', [id]);
-      await client.query('COMMIT');
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
-    } finally {
-      client.release();
-    }
+    await this.query('DELETE FROM folders WHERE id = $1', [id]);
   }
 
   /**
-   * Reorders folders within a collection.
+   * Moves a folder to a new parent and optional sibling position.
+   *
+   * @param id - Folder ID to move.
+   * @param parentFolderId - Destination parent, or null for collection root.
+   * @param sortOrder - Optional zero-based destination sibling index.
+   * @param actingUserId - User performing the move action.
+   */
+  async moveFolder(
+    id: string,
+    parentFolderId: string | null,
+    sortOrder: number | undefined,
+    actingUserId: string
+  ): Promise<FolderRecord> {
+    const folder = await this.findFolderById(id);
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+    const folders = await this.listFolders(folder.collectionId);
+    if (parentFolderId != null) {
+      const parent = folders.find((entry) => entry.id === parentFolderId);
+      if (!parent) {
+        throw new Error('Parent folder not found in collection');
+      }
+      let ancestor: FolderRecord | undefined = parent;
+      while (ancestor) {
+        if (ancestor.id === id) {
+          throw new Error('Cannot move a folder inside itself or its descendants');
+        }
+        ancestor =
+          ancestor.parentFolderId == null
+            ? undefined
+            : folders.find((entry) => entry.id === ancestor?.parentFolderId);
+      }
+    }
+
+    const siblings = folders
+      .filter((entry) => entry.id !== id && entry.parentFolderId === parentFolderId)
+      .sort(
+        (left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name)
+      );
+    const index = Math.max(0, Math.min(sortOrder ?? siblings.length, siblings.length));
+    siblings.splice(index, 0, { ...folder, parentFolderId });
+
+    const updatedAt = new Date();
+    await this.query(
+      `UPDATE folders SET parent_folder_id = $1, updated_at = $2, updated_by_user_id = $3
+       WHERE id = $4`,
+      [parentFolderId, updatedAt, actingUserId, id]
+    );
+    await this.reorderFolders(
+      folder.collectionId,
+      parentFolderId,
+      siblings.map((entry) => entry.id),
+      actingUserId
+    );
+    const moved = await this.findFolderById(id);
+    if (!moved) {
+      throw new Error('Folder not found after move');
+    }
+    return moved;
+  }
+
+  /**
+   * Reorders sibling folders within a collection.
    *
    * @param collectionId - Collection containing the folders.
    * @param orderedFolderIds - Folder IDs in desired order.
@@ -1786,6 +1857,7 @@ export class PostgresDatabase implements IDatabase {
    */
   async reorderFolders(
     collectionId: string,
+    parentFolderId: string | null,
     orderedFolderIds: string[],
     actingUserId: string
   ): Promise<void> {
@@ -1799,8 +1871,10 @@ export class PostgresDatabase implements IDatabase {
           SET sort_order = $1,
             updated_at = $2,
             updated_by_user_id = $3
-          WHERE id = $4 AND collection_id = $5`,
-          [index, updatedAt, actingUserId, orderedFolderIds[index], collectionId]
+          WHERE id = $4
+            AND collection_id = $5
+            AND parent_folder_id IS NOT DISTINCT FROM $6`,
+          [index, updatedAt, actingUserId, orderedFolderIds[index], collectionId, parentFolderId]
         );
       }
       await client.query('COMMIT');
@@ -1812,6 +1886,7 @@ export class PostgresDatabase implements IDatabase {
     }
 
     await this.recordAuditEntry(actingUserId, 'reorder', 'folder', collectionId, {
+      parentFolderId,
       orderedFolderIds
     });
   }
@@ -2006,7 +2081,7 @@ export class PostgresDatabase implements IDatabase {
   async saveDocument(input: SaveDocumentInput, actingUserId: string): Promise<DocumentRecord> {
     const trimmedName = trimRequiredName(input.name, 'Document name');
     const folderId = input.folderId ?? null;
-    const serializedColor = serializeSidebarColor(input.color ?? null);
+    const serializedMarker = serializeSidebarMarker(input.marker ?? null);
     const now = new Date();
 
     if (folderId != null) {
@@ -2027,7 +2102,7 @@ export class PostgresDatabase implements IDatabase {
           folder_id = $2,
           name = $3,
           content = $4,
-          color = $5,
+          marker = $5,
           updated_at = $6,
           updated_by_user_id = $7
         WHERE id = $8`,
@@ -2036,7 +2111,7 @@ export class PostgresDatabase implements IDatabase {
           folderId,
           trimmedName,
           input.content,
-          serializedColor,
+          serializedMarker,
           now,
           actingUserId,
           input.id
@@ -2072,7 +2147,7 @@ export class PostgresDatabase implements IDatabase {
         folder_id,
         name,
         content,
-        color,
+        marker,
         sort_order,
         created_at,
         updated_at,
@@ -2086,7 +2161,7 @@ export class PostgresDatabase implements IDatabase {
         folderId,
         trimmedName,
         input.content,
-        serializedColor,
+        serializedMarker,
         maxOrder + 1,
         now,
         now,

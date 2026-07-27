@@ -14,6 +14,7 @@ import {
   emptyResponseSchema,
   folderRecordSchema,
   listFoldersResponseSchema,
+  moveFolderBodySchema,
   renameFolderBodySchema,
   reorderFoldersBodySchema,
   serializeFolder
@@ -95,7 +96,8 @@ export async function registerFolderRoutes(app: FastifyInstance, db: IDatabase):
         const folder = await db.createFolder(
           request.params.collectionId,
           request.body.name,
-          user.id
+          user.id,
+          request.body.parentFolderId
         );
         return reply.send(serializeFolder(folder));
       } catch (error) {
@@ -103,6 +105,53 @@ export async function registerFolderRoutes(app: FastifyInstance, db: IDatabase):
           return;
         }
 
+        throw error;
+      }
+    }
+  });
+
+  routes.route({
+    method: 'PUT',
+    url: '/folders/:id/move',
+    schema: {
+      params: idParamSchema,
+      body: moveFolderBodySchema,
+      response: {
+        200: folderRecordSchema,
+        400: errorResponseSchema,
+        404: errorResponseSchema
+      }
+    },
+    /**
+     * Moves a folder to another parent or collection root.
+     */
+    handler: async (request, reply) => {
+      try {
+        const user = requireAuthenticatedUser(request);
+        const existingFolder = await db.findFolderById(request.params.id);
+        if (!existingFolder) {
+          return reply.code(404).send({ error: 'Folder not found' });
+        }
+        if (
+          denyUnlessAllowed(
+            reply,
+            canUseDataApi(user) && canAccessCollection(user, existingFolder.collectionId)
+          )
+        ) {
+          return;
+        }
+
+        const folder = await db.moveFolder(
+          request.params.id,
+          request.body.parentFolderId,
+          request.body.sortOrder,
+          user.id
+        );
+        return reply.send(serializeFolder(folder));
+      } catch (error) {
+        if (handleDbError(reply, error)) {
+          return;
+        }
         throw error;
       }
     }
@@ -144,7 +193,7 @@ export async function registerFolderRoutes(app: FastifyInstance, db: IDatabase):
           request.params.id,
           request.body.name,
           user.id,
-          request.body.color
+          request.body.marker
         );
         return reply.send(serializeFolder(folder));
       } catch (error) {
@@ -227,6 +276,7 @@ export async function registerFolderRoutes(app: FastifyInstance, db: IDatabase):
 
         await db.reorderFolders(
           request.params.collectionId,
+          request.body.parentFolderId,
           request.body.orderedFolderIds,
           user.id
         );

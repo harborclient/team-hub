@@ -56,7 +56,7 @@ import type { IDatabase } from '#/db/IDatabase.js';
 import { buildDefaultRunResultLabel, parseRunResultPayload } from '#/db/runResultPayload.js';
 import { generateApiToken } from '#/server/auth/apiTokens.js';
 import { trimRequiredName } from '#/db/trimRequiredName.js';
-import { serializeSidebarColor } from '#/db/sidebarColor.js';
+import { serializeSidebarMarker } from '#/db/sidebarMarker.js';
 import { assertUserNameAvailable, assertUserNameNotReserved } from '#/db/userNameValidation.js';
 import type {
   ApiTokenRecord,
@@ -908,7 +908,7 @@ export class FirestoreDatabase implements IDatabase {
     postRequestScript: string,
     auth: AuthConfig,
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<CollectionRecord> {
     const trimmedName = trimRequiredName(name, 'Collection name');
     const updatedAt = new Date();
@@ -919,7 +919,8 @@ export class FirestoreDatabase implements IDatabase {
     }
 
     const existing = snapshot.data() as FirestoreCollectionDocument;
-    const serializedColor = color !== undefined ? serializeSidebarColor(color) : existing.color;
+    const serializedMarker =
+      marker !== undefined ? serializeSidebarMarker(marker) : existing.marker;
     const updated: FirestoreCollectionDocument = {
       ...existing,
       name: trimmedName,
@@ -930,7 +931,7 @@ export class FirestoreDatabase implements IDatabase {
       postRequestScript,
       updatedAt,
       updatedByUserId: actingUserId,
-      ...(color !== undefined ? { color: serializedColor } : {})
+      ...(marker !== undefined ? { marker: serializedMarker } : {})
     };
 
     await docRef.update({
@@ -942,7 +943,7 @@ export class FirestoreDatabase implements IDatabase {
       postRequestScript,
       updatedAt,
       updatedByUserId: actingUserId,
-      ...(color !== undefined ? { color: serializedColor } : {})
+      ...(marker !== undefined ? { marker: serializedMarker } : {})
     });
 
     await this.recordAuditEntry(actingUserId, 'update', 'collection', id);
@@ -1081,7 +1082,7 @@ export class FirestoreDatabase implements IDatabase {
     name: string,
     variables: Variable[],
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<EnvironmentRecord> {
     const trimmedName = trimRequiredName(name, 'Environment name');
     const updatedAt = new Date();
@@ -1092,14 +1093,15 @@ export class FirestoreDatabase implements IDatabase {
     }
 
     const existing = snapshot.data() as FirestoreEnvironmentDocument;
-    const serializedColor = color !== undefined ? serializeSidebarColor(color) : existing.color;
+    const serializedMarker =
+      marker !== undefined ? serializeSidebarMarker(marker) : existing.marker;
     const updated: FirestoreEnvironmentDocument = {
       ...existing,
       name: trimmedName,
       variables,
       updatedAt,
       updatedByUserId: actingUserId,
-      ...(color !== undefined ? { color: serializedColor } : {})
+      ...(marker !== undefined ? { marker: serializedMarker } : {})
     };
 
     await docRef.update({
@@ -1107,7 +1109,7 @@ export class FirestoreDatabase implements IDatabase {
       variables,
       updatedAt,
       updatedByUserId: actingUserId,
-      ...(color !== undefined ? { color: serializedColor } : {})
+      ...(marker !== undefined ? { marker: serializedMarker } : {})
     });
 
     await this.recordAuditEntry(actingUserId, 'update', 'environment', id);
@@ -1376,7 +1378,7 @@ export class FirestoreDatabase implements IDatabase {
   async saveRequest(input: SaveRequestInput, actingUserId: string): Promise<SavedRequestRecord> {
     const trimmedName = trimRequiredName(input.name, 'Request name');
     const folderId = input.folderId ?? null;
-    const serializedColor = serializeSidebarColor(input.color ?? null);
+    const serializedMarker = serializeSidebarMarker(input.marker ?? null);
     const now = new Date();
     const client = this.requireClient();
 
@@ -1412,7 +1414,7 @@ export class FirestoreDatabase implements IDatabase {
           preRequestScript: input.preRequestScript,
           postRequestScript: input.postRequestScript,
           comment: input.comment,
-          color: serializedColor,
+          marker: serializedMarker,
           updatedAt: now,
           updatedByUserId: actingUserId
         };
@@ -1431,7 +1433,7 @@ export class FirestoreDatabase implements IDatabase {
           preRequestScript: input.preRequestScript,
           postRequestScript: input.postRequestScript,
           comment: input.comment,
-          color: serializedColor,
+          marker: serializedMarker,
           updatedAt: now,
           updatedByUserId: actingUserId
         });
@@ -1460,7 +1462,7 @@ export class FirestoreDatabase implements IDatabase {
       preRequestScript: input.preRequestScript,
       postRequestScript: input.postRequestScript,
       comment: input.comment,
-      color: serializedColor,
+      marker: serializedMarker,
       sortOrder: maxOrder + 1,
       createdAt: now,
       updatedAt: now,
@@ -1530,15 +1532,25 @@ export class FirestoreDatabase implements IDatabase {
   async createFolder(
     collectionId: string,
     name: string,
-    actingUserId: string
+    actingUserId: string,
+    parentFolderId: string | null = null
   ): Promise<FolderRecord> {
     const trimmedName = trimRequiredName(name, 'Folder name');
+    if (parentFolderId != null) {
+      const parent = await this.findFolderById(parentFolderId);
+      if (!parent || parent.collectionId !== collectionId) {
+        throw new Error('Parent folder not found in collection');
+      }
+    }
     const id = randomUUID();
     const now = new Date();
     const existingFolders = await this.listFolders(collectionId);
-    const maxOrder = existingFolders.reduce((max, folder) => Math.max(max, folder.sortOrder), -1);
+    const maxOrder = existingFolders
+      .filter((folder) => folder.parentFolderId === parentFolderId)
+      .reduce((max, folder) => Math.max(max, folder.sortOrder), -1);
     const data: FirestoreFolderDocument = {
       collectionId,
+      parentFolderId,
       name: trimmedName,
       sortOrder: maxOrder + 1,
       createdAt: now,
@@ -1563,7 +1575,7 @@ export class FirestoreDatabase implements IDatabase {
     id: string,
     name: string,
     actingUserId: string,
-    color?: string | null
+    marker?: string | null
   ): Promise<FolderRecord> {
     const trimmedName = trimRequiredName(name, 'Folder name');
     const updatedAt = new Date();
@@ -1574,12 +1586,13 @@ export class FirestoreDatabase implements IDatabase {
     }
 
     const existing = snapshot.data() as FirestoreFolderDocument;
-    const serializedColor = color !== undefined ? serializeSidebarColor(color) : existing.color;
+    const serializedMarker =
+      marker !== undefined ? serializeSidebarMarker(marker) : existing.marker;
     await docRef.update({
       name: trimmedName,
       updatedAt,
       updatedByUserId: actingUserId,
-      ...(color !== undefined ? { color: serializedColor } : {})
+      ...(marker !== undefined ? { marker: serializedMarker } : {})
     });
     await this.recordAuditEntry(actingUserId, 'update', 'folder', id);
     return mapFirestoreFolder(id, {
@@ -1587,12 +1600,12 @@ export class FirestoreDatabase implements IDatabase {
       name: trimmedName,
       updatedAt,
       updatedByUserId: actingUserId,
-      ...(color !== undefined ? { color: serializedColor } : {})
+      ...(marker !== undefined ? { marker: serializedMarker } : {})
     });
   }
 
   /**
-   * Deletes a folder and all requests inside it.
+   * Deletes a folder, its descendants, and their contents.
    *
    * @param id - Folder ID to delete.
    * @param actingUserId - User performing the delete action.
@@ -1601,26 +1614,113 @@ export class FirestoreDatabase implements IDatabase {
     await this.recordAuditEntry(actingUserId, 'delete', 'folder', id);
 
     const client = this.requireClient();
-    const requestsSnap = await client
-      .collection(REQUESTS_COLLECTION)
-      .where('folderId', '==', id)
-      .get();
-    const documentsSnap = await client
-      .collection(DOCUMENTS_COLLECTION)
-      .where('folderId', '==', id)
-      .get();
-
+    const root = await this.findFolderById(id);
+    if (!root) {
+      return;
+    }
+    const folders = await this.listFolders(root.collectionId);
+    const descendantIds = new Set<string>([id]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const folder of folders) {
+        if (
+          folder.parentFolderId != null &&
+          descendantIds.has(folder.parentFolderId) &&
+          !descendantIds.has(folder.id)
+        ) {
+          descendantIds.add(folder.id);
+          changed = true;
+        }
+      }
+    }
+    const ids = [...descendantIds];
+    const requestSnapshots = await Promise.all(
+      ids.map((folderId) =>
+        client.collection(REQUESTS_COLLECTION).where('folderId', '==', folderId).get()
+      )
+    );
+    const documentSnapshots = await Promise.all(
+      ids.map((folderId) =>
+        client.collection(DOCUMENTS_COLLECTION).where('folderId', '==', folderId).get()
+      )
+    );
     const refs = [
-      ...requestsSnap.docs.map((requestDoc) => requestDoc.ref),
-      ...documentsSnap.docs.map((documentDoc) => documentDoc.ref),
-      client.collection(FOLDERS_COLLECTION).doc(id)
+      ...requestSnapshots.flatMap((snapshot) => snapshot.docs.map((requestDoc) => requestDoc.ref)),
+      ...documentSnapshots.flatMap((snapshot) =>
+        snapshot.docs.map((documentDoc) => documentDoc.ref)
+      ),
+      ...ids.map((folderId) => client.collection(FOLDERS_COLLECTION).doc(folderId))
     ];
 
     await this.commitBatchedDeletes(refs);
   }
 
   /**
-   * Reorders folders within a collection.
+   * Moves a folder to a new parent and optional sibling position.
+   *
+   * @param id - Folder ID to move.
+   * @param parentFolderId - Destination parent, or null for collection root.
+   * @param sortOrder - Optional zero-based destination sibling index.
+   * @param actingUserId - User performing the move action.
+   */
+  async moveFolder(
+    id: string,
+    parentFolderId: string | null,
+    sortOrder: number | undefined,
+    actingUserId: string
+  ): Promise<FolderRecord> {
+    const folder = await this.findFolderById(id);
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+    const folders = await this.listFolders(folder.collectionId);
+    if (parentFolderId != null) {
+      let ancestor = folders.find((entry) => entry.id === parentFolderId);
+      if (!ancestor) {
+        throw new Error('Parent folder not found in collection');
+      }
+      while (ancestor) {
+        if (ancestor.id === id) {
+          throw new Error('Cannot move a folder inside itself or its descendants');
+        }
+        ancestor =
+          ancestor.parentFolderId == null
+            ? undefined
+            : folders.find((entry) => entry.id === ancestor?.parentFolderId);
+      }
+    }
+
+    const siblings = folders
+      .filter((entry) => entry.id !== id && entry.parentFolderId === parentFolderId)
+      .sort(
+        (left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name)
+      );
+    const index = Math.max(0, Math.min(sortOrder ?? siblings.length, siblings.length));
+    siblings.splice(index, 0, { ...folder, parentFolderId });
+    const updatedAt = new Date();
+    await this.requireClient().collection(FOLDERS_COLLECTION).doc(id).update({
+      parentFolderId,
+      updatedAt,
+      updatedByUserId: actingUserId
+    });
+    await this.reorderFolders(
+      folder.collectionId,
+      parentFolderId,
+      siblings.map((entry) => entry.id),
+      actingUserId
+    );
+    return {
+      ...folder,
+      parentFolderId,
+      sortOrder: index,
+      updatedAt,
+      updatedByUserId: actingUserId
+    };
+  }
+
+  /**
+   * Reorders sibling folders within a collection.
    *
    * @param collectionId - Collection containing the folders.
    * @param orderedFolderIds - Folder IDs in desired order.
@@ -1628,6 +1728,7 @@ export class FirestoreDatabase implements IDatabase {
    */
   async reorderFolders(
     collectionId: string,
+    parentFolderId: string | null,
     orderedFolderIds: string[],
     actingUserId: string
   ): Promise<void> {
@@ -1647,6 +1748,7 @@ export class FirestoreDatabase implements IDatabase {
 
     await batch.commit();
     await this.recordAuditEntry(actingUserId, 'reorder', 'folder', collectionId, {
+      parentFolderId,
       orderedFolderIds
     });
   }
@@ -1832,7 +1934,7 @@ export class FirestoreDatabase implements IDatabase {
   async saveDocument(input: SaveDocumentInput, actingUserId: string): Promise<DocumentRecord> {
     const trimmedName = trimRequiredName(input.name, 'Document name');
     const folderId = input.folderId ?? null;
-    const serializedColor = serializeSidebarColor(input.color ?? null);
+    const serializedMarker = serializeSidebarMarker(input.marker ?? null);
     const now = new Date();
     const client = this.requireClient();
 
@@ -1859,7 +1961,7 @@ export class FirestoreDatabase implements IDatabase {
           folderId,
           name: trimmedName,
           content: input.content,
-          color: serializedColor,
+          marker: serializedMarker,
           updatedAt: now,
           updatedByUserId: actingUserId
         };
@@ -1869,7 +1971,7 @@ export class FirestoreDatabase implements IDatabase {
           folderId,
           name: trimmedName,
           content: input.content,
-          color: serializedColor,
+          marker: serializedMarker,
           updatedAt: now,
           updatedByUserId: actingUserId
         });
@@ -1889,7 +1991,7 @@ export class FirestoreDatabase implements IDatabase {
       folderId,
       name: trimmedName,
       content: input.content,
-      color: serializedColor,
+      marker: serializedMarker,
       sortOrder: maxOrder + 1,
       createdAt: now,
       updatedAt: now,

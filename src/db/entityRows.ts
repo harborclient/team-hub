@@ -15,7 +15,7 @@ import type {
   Variable
 } from '#/db/types.js';
 import { defaultAuth, normalizeAuth, normalizeVariable } from '#/db/types.js';
-import { readSidebarColor } from '#/db/sidebarColor.js';
+import { readSidebarMarker } from '#/db/sidebarMarker.js';
 
 /**
  * Parses a JSON string, returning a fallback value on failure.
@@ -117,9 +117,9 @@ export interface CollectionSqlRow {
   deletion_locked: boolean;
 
   /**
-   * Optional sidebar color column.
+   * Optional sidebar marker column.
    */
-  color: string | null;
+  marker: string | null;
 }
 
 /**
@@ -167,9 +167,9 @@ export interface EnvironmentSqlRow {
   deletion_locked: boolean;
 
   /**
-   * Optional sidebar color column.
+   * Optional sidebar marker column.
    */
-  color: string | null;
+  marker: string | null;
 }
 
 /**
@@ -242,6 +242,11 @@ export interface FolderSqlRow {
   collection_id: string;
 
   /**
+   * Optional parent folder identifier column.
+   */
+  parent_folder_id: string | null;
+
+  /**
    * Display name column.
    */
   name: string;
@@ -272,9 +277,9 @@ export interface FolderSqlRow {
   updated_by_user_id: string | null;
 
   /**
-   * Optional sidebar color column.
+   * Optional sidebar marker column.
    */
-  color: string | null;
+  marker: string | null;
 }
 
 /**
@@ -377,9 +382,9 @@ export interface RequestSqlRow {
   updated_by_user_id: string | null;
 
   /**
-   * Optional sidebar color column.
+   * Optional sidebar marker column.
    */
-  color: string | null;
+  marker: string | null;
 }
 
 /**
@@ -437,9 +442,9 @@ export interface DocumentSqlRow {
   updated_by_user_id: string | null;
 
   /**
-   * Optional sidebar color column.
+   * Optional sidebar marker column.
    */
-  color: string | null;
+  marker: string | null;
 }
 
 /**
@@ -462,7 +467,7 @@ export function mapCollectionSqlRow(row: CollectionSqlRow): CollectionRecord {
     createdByUserId: row.created_by_user_id ?? null,
     updatedByUserId: row.updated_by_user_id ?? null,
     deletionLocked: Boolean(row.deletion_locked),
-    color: readSidebarColor(row.color)
+    marker: readSidebarMarker(row.marker)
   };
 }
 
@@ -482,7 +487,7 @@ export function mapEnvironmentSqlRow(row: EnvironmentSqlRow): EnvironmentRecord 
     createdByUserId: row.created_by_user_id ?? null,
     updatedByUserId: row.updated_by_user_id ?? null,
     deletionLocked: Boolean(row.deletion_locked),
-    color: readSidebarColor(row.color)
+    marker: readSidebarMarker(row.marker)
   };
 }
 
@@ -573,13 +578,14 @@ export function mapFolderSqlRow(row: FolderSqlRow): FolderRecord {
   return {
     id: row.id,
     collectionId: row.collection_id,
+    parentFolderId: row.parent_folder_id,
     name: row.name,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
     createdByUserId: row.created_by_user_id ?? null,
     updatedByUserId: row.updated_by_user_id ?? null,
-    color: readSidebarColor(row.color)
+    marker: readSidebarMarker(row.marker)
   };
 }
 
@@ -610,7 +616,7 @@ export function mapRequestSqlRow(row: RequestSqlRow): SavedRequestRecord {
     updatedAt: row.updated_at,
     createdByUserId: row.created_by_user_id ?? null,
     updatedByUserId: row.updated_by_user_id ?? null,
-    color: readSidebarColor(row.color)
+    marker: readSidebarMarker(row.marker)
   };
 }
 
@@ -632,6 +638,6 @@ export function mapDocumentSqlRow(row: DocumentSqlRow): DocumentRecord {
     updatedAt: row.updated_at,
     createdByUserId: row.created_by_user_id ?? null,
     updatedByUserId: row.updated_by_user_id ?? null,
-    color: readSidebarColor(row.color)
+    marker: readSidebarMarker(row.marker)
   };
 }

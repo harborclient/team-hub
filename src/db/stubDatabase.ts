@@ -65,6 +65,7 @@ export function createStubDatabase(): Mocked<IDatabase> {
     createFolder: vi.fn(),
     renameFolder: vi.fn(),
     deleteFolder: vi.fn(),
+    moveFolder: vi.fn(),
     reorderFolders: vi.fn(),
     reorderRequests: vi.fn(),
     moveRequest: vi.fn(),

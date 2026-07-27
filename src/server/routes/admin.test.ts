@@ -28,7 +28,7 @@ const sampleCollection = {
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   ...sampleAttribution,
   deletionLocked: false,
-  color: null
+  marker: null
 };
 
 const sampleEnvironment = {
@@ -39,18 +39,19 @@ const sampleEnvironment = {
   updatedAt: new Date('2026-01-02T00:00:00.000Z'),
   ...sampleAttribution,
   deletionLocked: false,
-  color: null
+  marker: null
 };
 
 const sampleFolder = {
   id: 'folder-1',
   collectionId: 'collection-1',
+  parentFolderId: null,
   name: 'Auth',
   sortOrder: 0,
   createdAt: new Date('2026-01-03T00:00:00.000Z'),
   updatedAt: new Date('2026-01-03T00:00:00.000Z'),
   ...sampleAttribution,
-  color: null
+  marker: null
 };
 
 const sampleRequest = {
@@ -72,7 +73,7 @@ const sampleRequest = {
   createdAt: new Date('2026-01-04T00:00:00.000Z'),
   updatedAt: new Date('2026-01-05T00:00:00.000Z'),
   ...sampleAttribution,
-  color: null
+  marker: null
 };
 
 const sampleSnippet = {
@@ -1200,7 +1201,12 @@ describe('GET /admin/collections/:collectionId/folders', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().folders).toEqual([
-      expect.objectContaining({ id: 'folder-1', name: 'Auth', sortOrder: 0 })
+      expect.objectContaining({
+        id: 'folder-1',
+        parentFolderId: null,
+        name: 'Auth',
+        sortOrder: 0
+      })
     ]);
 
     await app.close();

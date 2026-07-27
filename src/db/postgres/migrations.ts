@@ -77,6 +77,7 @@ export const FOLDERS_MIGRATION_SQL = `
 CREATE TABLE IF NOT EXISTS folders (
   id TEXT PRIMARY KEY,
   collection_id TEXT NOT NULL,
+  parent_folder_id TEXT REFERENCES folders(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   sort_order INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL,
@@ -215,6 +216,14 @@ ALTER TABLE folders
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS updated_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
+`.trim();
+
+/**
+ * Adds nested-folder ancestry to existing folder tables.
+ */
+export const FOLDERS_PARENT_MIGRATION_SQL = `
+ALTER TABLE folders
+  ADD COLUMN IF NOT EXISTS parent_folder_id TEXT REFERENCES folders(id) ON DELETE CASCADE;
 `.trim();
 
 /**
@@ -383,44 +392,64 @@ CREATE INDEX IF NOT EXISTS user_invitations_expires_at_idx ON user_invitations (
 `.trim();
 
 /**
- * Adds sidebar color column to collections when upgrading existing databases.
+ * Builds the sidebar marker column migration for a table.
+ *
+ * Runs as a single statement so it works under both the simple and extended
+ * query protocols, and stays idempotent across restarts. Databases predating
+ * the marker rename carry the value in a `color` column, which is renamed in
+ * place so existing assignments survive the upgrade.
+ *
+ * @param table - Table receiving the sidebar marker column.
+ * @returns Idempotent PL/pgSQL migration statement.
  */
-export const COLLECTIONS_COLOR_MIGRATION_SQL = `
-ALTER TABLE collections
-  ADD COLUMN IF NOT EXISTS color TEXT;
+function buildMarkerMigrationSql(table: string): string {
+  return `
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = '${table}' AND column_name = 'color'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = '${table}' AND column_name = 'marker'
+  ) THEN
+    ALTER TABLE ${table} RENAME COLUMN color TO marker;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = '${table}' AND column_name = 'marker'
+  ) THEN
+    ALTER TABLE ${table} ADD COLUMN marker TEXT;
+  END IF;
+END $$;
 `.trim();
+}
 
 /**
- * Adds sidebar color column to folders when upgrading existing databases.
+ * Adds the sidebar marker column to collections, renaming a legacy `marker` column.
  */
-export const FOLDERS_COLOR_MIGRATION_SQL = `
-ALTER TABLE folders
-  ADD COLUMN IF NOT EXISTS color TEXT;
-`.trim();
+export const COLLECTIONS_MARKER_MIGRATION_SQL = buildMarkerMigrationSql('collections');
 
 /**
- * Adds sidebar color column to requests when upgrading existing databases.
+ * Adds the sidebar marker column to folders, renaming a legacy `marker` column.
  */
-export const REQUESTS_COLOR_MIGRATION_SQL = `
-ALTER TABLE requests
-  ADD COLUMN IF NOT EXISTS color TEXT;
-`.trim();
+export const FOLDERS_MARKER_MIGRATION_SQL = buildMarkerMigrationSql('folders');
 
 /**
- * Adds sidebar color column to documents when upgrading existing databases.
+ * Adds the sidebar marker column to requests, renaming a legacy `marker` column.
  */
-export const DOCUMENTS_COLOR_MIGRATION_SQL = `
-ALTER TABLE documents
-  ADD COLUMN IF NOT EXISTS color TEXT;
-`.trim();
+export const REQUESTS_MARKER_MIGRATION_SQL = buildMarkerMigrationSql('requests');
 
 /**
- * Adds sidebar color column to environments when upgrading existing databases.
+ * Adds the sidebar marker column to documents, renaming a legacy `marker` column.
  */
-export const ENVIRONMENTS_COLOR_MIGRATION_SQL = `
-ALTER TABLE environments
-  ADD COLUMN IF NOT EXISTS color TEXT;
-`.trim();
+export const DOCUMENTS_MARKER_MIGRATION_SQL = buildMarkerMigrationSql('documents');
+
+/**
+ * Adds the sidebar marker column to environments, renaming a legacy `marker` column.
+ */
+export const ENVIRONMENTS_MARKER_MIGRATION_SQL = buildMarkerMigrationSql('environments');
 
 /**
  * Ordered Postgres migrations applied by {@link PostgresDatabase.migrate}.
@@ -440,6 +469,7 @@ export const POSTGRES_MIGRATIONS = [
   COLLECTIONS_ATTRIBUTION_MIGRATION_SQL,
   ENVIRONMENTS_ATTRIBUTION_MIGRATION_SQL,
   FOLDERS_ATTRIBUTION_MIGRATION_SQL,
+  FOLDERS_PARENT_MIGRATION_SQL,
   REQUESTS_ATTRIBUTION_MIGRATION_SQL,
   USERS_ATTRIBUTION_MIGRATION_SQL,
   COLLECTIONS_BACKFILL_UPDATED_AT_SQL,
@@ -454,9 +484,9 @@ export const POSTGRES_MIGRATIONS = [
   USERS_SNIPPET_ACCESS_BACKFILL_SQL,
   RUN_RESULTS_MIGRATION_SQL,
   USER_INVITATIONS_MIGRATION_SQL,
-  COLLECTIONS_COLOR_MIGRATION_SQL,
-  FOLDERS_COLOR_MIGRATION_SQL,
-  REQUESTS_COLOR_MIGRATION_SQL,
-  DOCUMENTS_COLOR_MIGRATION_SQL,
-  ENVIRONMENTS_COLOR_MIGRATION_SQL
+  COLLECTIONS_MARKER_MIGRATION_SQL,
+  FOLDERS_MARKER_MIGRATION_SQL,
+  REQUESTS_MARKER_MIGRATION_SQL,
+  DOCUMENTS_MARKER_MIGRATION_SQL,
+  ENVIRONMENTS_MARKER_MIGRATION_SQL
 ];

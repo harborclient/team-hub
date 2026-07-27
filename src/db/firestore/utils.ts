@@ -29,7 +29,7 @@ import type {
   FirestoreRunResultDocument,
   FirestoreUserDocument
 } from '#/db/firestore/types.js';
-import { readSidebarColor } from '#/db/sidebarColor.js';
+import { readSidebarMarker } from '#/db/sidebarMarker.js';
 
 /**
  * Parses a stored entity type string into a typed {@link AuditEntityType}.
@@ -204,7 +204,7 @@ export function mapFirestoreCollection(
     createdByUserId: data.createdByUserId ?? null,
     updatedByUserId: data.updatedByUserId ?? null,
     deletionLocked: data.deletionLocked ?? false,
-    color: readSidebarColor(data.color)
+    marker: readSidebarMarker(data.marker)
   };
 }
 
@@ -228,7 +228,7 @@ export function mapFirestoreEnvironment(
     createdByUserId: data.createdByUserId ?? null,
     updatedByUserId: data.updatedByUserId ?? null,
     deletionLocked: data.deletionLocked ?? false,
-    color: readSidebarColor(data.color)
+    marker: readSidebarMarker(data.marker)
   };
 }
 
@@ -265,13 +265,14 @@ export function mapFirestoreFolder(id: string, data: FirestoreFolderDocument): F
   return {
     id,
     collectionId: data.collectionId,
+    parentFolderId: data.parentFolderId ?? null,
     name: data.name,
     sortOrder: data.sortOrder,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt ?? data.createdAt,
     createdByUserId: data.createdByUserId ?? null,
     updatedByUserId: data.updatedByUserId ?? null,
-    color: readSidebarColor(data.color)
+    marker: readSidebarMarker(data.marker)
   };
 }
 
@@ -306,7 +307,7 @@ export function mapFirestoreRequest(
     updatedAt: data.updatedAt,
     createdByUserId: data.createdByUserId ?? null,
     updatedByUserId: data.updatedByUserId ?? null,
-    color: readSidebarColor(data.color)
+    marker: readSidebarMarker(data.marker)
   };
 }
 
@@ -329,7 +330,7 @@ export function mapFirestoreDocument(id: string, data: FirestoreDocumentDocument
     updatedAt: data.updatedAt,
     createdByUserId: data.createdByUserId ?? null,
     updatedByUserId: data.updatedByUserId ?? null,
-    color: readSidebarColor(data.color)
+    marker: readSidebarMarker(data.marker)
   };
 }
 

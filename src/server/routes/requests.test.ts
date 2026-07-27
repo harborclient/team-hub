@@ -23,7 +23,7 @@ const sampleRequest = {
   createdAt: new Date('2026-01-04T00:00:00.000Z'),
   updatedAt: new Date('2026-01-05T00:00:00.000Z'),
   ...sampleAttribution,
-  color: null
+  marker: null
 };
 
 describe('request routes', () => {

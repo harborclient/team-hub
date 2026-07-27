@@ -18,9 +18,9 @@ import {
 } from '#/server/routes/schemas/common.js';
 
 /**
- * Optional sidebar color accepted in create/update request bodies.
+ * Optional sidebar marker accepted in create/update request bodies.
  */
-export const sidebarColorBodySchema = z.union([z.string().trim().min(1), z.null()]).optional();
+export const sidebarMarkerBodySchema = z.union([z.string().trim().min(1), z.null()]).optional();
 
 /**
  * JSON shape for a persisted collection record.
@@ -38,7 +38,7 @@ export const collectionRecordSchema = z.object({
   createdByUserId: z.string().nullable(),
   updatedByUserId: z.string().nullable(),
   deletionLocked: z.boolean(),
-  color: z.string().nullable()
+  marker: z.string().nullable()
 });
 
 /**
@@ -53,7 +53,7 @@ export const environmentRecordSchema = z.object({
   createdByUserId: z.string().nullable(),
   updatedByUserId: z.string().nullable(),
   deletionLocked: z.boolean(),
-  color: z.string().nullable()
+  marker: z.string().nullable()
 });
 
 /**
@@ -83,13 +83,14 @@ export const snippetRecordSchema = z.object({
 export const folderRecordSchema = z.object({
   id: z.string(),
   collectionId: z.string(),
+  parentFolderId: z.string().nullable(),
   name: z.string(),
   sortOrder: z.number().int(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   createdByUserId: z.string().nullable(),
   updatedByUserId: z.string().nullable(),
-  color: z.string().nullable()
+  marker: z.string().nullable()
 });
 
 /**
@@ -115,7 +116,7 @@ export const savedRequestRecordSchema = z.object({
   updatedAt: timestampSchema,
   createdByUserId: z.string().nullable(),
   updatedByUserId: z.string().nullable(),
-  color: z.string().nullable()
+  marker: z.string().nullable()
 });
 
 /**
@@ -123,7 +124,7 @@ export const savedRequestRecordSchema = z.object({
  */
 export const createCollectionBodySchema = z.object({
   name: z.string().trim().min(1),
-  color: sidebarColorBodySchema
+  marker: sidebarMarkerBodySchema
 });
 
 /**
@@ -136,7 +137,7 @@ export const updateCollectionBodySchema = z.object({
   preRequestScript: z.string(),
   postRequestScript: z.string(),
   auth: authConfigSchema,
-  color: sidebarColorBodySchema
+  marker: sidebarMarkerBodySchema
 });
 
 /**
@@ -144,7 +145,7 @@ export const updateCollectionBodySchema = z.object({
  */
 export const createEnvironmentBodySchema = z.object({
   name: z.string().trim().min(1),
-  color: sidebarColorBodySchema
+  marker: sidebarMarkerBodySchema
 });
 
 /**
@@ -153,7 +154,7 @@ export const createEnvironmentBodySchema = z.object({
 export const updateEnvironmentBodySchema = z.object({
   name: z.string().trim().min(1),
   variables: z.array(variableSchema),
-  color: sidebarColorBodySchema
+  marker: sidebarMarkerBodySchema
 });
 
 /**
@@ -182,7 +183,8 @@ export const updateSnippetBodySchema = z.object({
  */
 export const createFolderBodySchema = z.object({
   name: z.string().trim().min(1),
-  color: sidebarColorBodySchema
+  parentFolderId: z.string().nullable().optional(),
+  marker: sidebarMarkerBodySchema
 });
 
 /**
@@ -190,14 +192,23 @@ export const createFolderBodySchema = z.object({
  */
 export const renameFolderBodySchema = z.object({
   name: z.string().trim().min(1),
-  color: sidebarColorBodySchema
+  marker: sidebarMarkerBodySchema
 });
 
 /**
  * Request body for reordering folders within a collection.
  */
 export const reorderFoldersBodySchema = z.object({
+  parentFolderId: z.string().nullable(),
   orderedFolderIds: z.array(z.string().trim().min(1))
+});
+
+/**
+ * Request body for moving a folder to another parent.
+ */
+export const moveFolderBodySchema = z.object({
+  parentFolderId: z.string().nullable(),
+  sortOrder: z.number().int().min(0).optional()
 });
 
 /**
@@ -216,7 +227,7 @@ export const saveRequestBodySchema = z.object({
   postRequestScript: z.string(),
   comment: z.string(),
   folderId: z.string().nullable().optional(),
-  color: sidebarColorBodySchema
+  marker: sidebarMarkerBodySchema
 });
 
 /**
@@ -291,7 +302,7 @@ export const documentRecordSchema = z.object({
   updatedAt: timestampSchema,
   createdByUserId: z.string().nullable(),
   updatedByUserId: z.string().nullable(),
-  color: z.string().nullable()
+  marker: z.string().nullable()
 });
 
 /**
@@ -301,7 +312,7 @@ export const saveDocumentBodySchema = z.object({
   name: z.string().trim().min(1),
   content: z.string(),
   folderId: z.string().nullable().optional(),
-  color: sidebarColorBodySchema
+  marker: sidebarMarkerBodySchema
 });
 
 /**

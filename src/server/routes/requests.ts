@@ -113,7 +113,7 @@ export async function registerRequestRoutes(app: FastifyInstance, db: IDatabase)
             postRequestScript: request.body.postRequestScript,
             comment: request.body.comment,
             folderId: request.body.folderId ?? null,
-            color: request.body.color
+            marker: request.body.marker
           },
           user.id
         );
@@ -171,7 +171,7 @@ export async function registerRequestRoutes(app: FastifyInstance, db: IDatabase)
             postRequestScript: request.body.postRequestScript,
             comment: request.body.comment,
             folderId: request.body.folderId ?? null,
-            color: request.body.color
+            marker: request.body.marker
           },
           user.id
         );

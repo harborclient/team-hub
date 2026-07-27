@@ -21,7 +21,7 @@ const sampleCollection = {
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   ...sampleAttribution,
   deletionLocked: false,
-  color: null
+  marker: null
 };
 
 describe('collection routes', () => {
@@ -303,9 +303,9 @@ describe('collection routes', () => {
     await app.close();
   });
 
-  it('passes sidebar color through collection updates', async () => {
+  it('passes sidebar marker through collection updates', async () => {
     const db = createStubDatabase();
-    db.updateCollection.mockResolvedValue({ ...sampleCollection, color: '#32D2E2' });
+    db.updateCollection.mockResolvedValue({ ...sampleCollection, marker: '#32D2E2' });
     const app = await createProtectedTestApp({ db, withValidAuth: true });
 
     const response = await app.inject({
@@ -319,7 +319,7 @@ describe('collection routes', () => {
         preRequestScript: '',
         postRequestScript: '',
         auth: defaultAuth(),
-        color: '#32D2E2'
+        marker: '#32D2E2'
       }
     });
 
@@ -335,7 +335,7 @@ describe('collection routes', () => {
       'user-1',
       '#32D2E2'
     );
-    expect(response.json().color).toBe('#32D2E2');
+    expect(response.json().marker).toBe('#32D2E2');
 
     await app.close();
   });

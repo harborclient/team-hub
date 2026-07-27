@@ -131,7 +131,7 @@ export async function registerEnvironmentRoutes(
           request.body.name,
           request.body.variables,
           user.id,
-          request.body.color
+          request.body.marker
         );
         return reply.send(serializeEnvironment(environment));
       } catch (error) {

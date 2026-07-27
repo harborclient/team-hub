@@ -133,7 +133,7 @@ export async function registerCollectionRoutes(app: FastifyInstance, db: IDataba
           request.body.postRequestScript,
           request.body.auth,
           user.id,
-          request.body.color
+          request.body.marker
         );
         return reply.send(serializeCollection(collection));
       } catch (error) {

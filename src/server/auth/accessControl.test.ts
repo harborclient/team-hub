@@ -72,7 +72,7 @@ const sampleCollections: CollectionRecord[] = [
     createdByUserId: 'user-1',
     updatedByUserId: null,
     deletionLocked: false,
-    color: null
+    marker: null
   },
   {
     id: 'collection-b',
@@ -87,7 +87,7 @@ const sampleCollections: CollectionRecord[] = [
     createdByUserId: null,
     updatedByUserId: null,
     deletionLocked: false,
-    color: null
+    marker: null
   }
 ];
 
@@ -101,7 +101,7 @@ const sampleEnvironments: EnvironmentRecord[] = [
     createdByUserId: null,
     updatedByUserId: null,
     deletionLocked: false,
-    color: null
+    marker: null
   },
   {
     id: 'env-b',
@@ -112,7 +112,7 @@ const sampleEnvironments: EnvironmentRecord[] = [
     createdByUserId: null,
     updatedByUserId: null,
     deletionLocked: false,
-    color: null
+    marker: null
   }
 ];
 
@@ -136,7 +136,7 @@ const sampleRequest: SavedRequestRecord = {
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   createdByUserId: 'user-1',
   updatedByUserId: null,
-  color: null
+  marker: null
 };
 
 describe('accessControl', () => {
